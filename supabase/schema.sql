@@ -74,6 +74,13 @@ create table if not exists usage_events (
 
 alter table rooms add column if not exists host_name text not null default '';
 
+-- 방 생성 남용 방지용 카운터 (클라이언트 접근 불가)
+create table if not exists create_throttle (
+  bucket       text primary key,           -- 'global' 또는 'ip:<addr>'
+  count        int not null default 0,
+  window_start timestamptz not null default now()
+);
+
 -- ─────────────────────────────────────────────────────────────
 -- RLS: 읽기만, 쓰기는 RPC 전용
 -- ─────────────────────────────────────────────────────────────
@@ -82,6 +89,7 @@ alter table submissions        enable row level security;
 alter table submission_editors enable row level security;
 alter table room_secrets       enable row level security;
 alter table usage_events       enable row level security;
+alter table create_throttle    enable row level security;
 
 drop policy if exists "rooms read" on rooms;
 create policy "rooms read" on rooms for select using (expires_at > now());
@@ -95,6 +103,7 @@ revoke insert, update, delete on submissions        from anon, authenticated;
 revoke all                    on submission_editors from anon, authenticated;
 revoke all                    on room_secrets       from anon, authenticated;
 revoke all                    on usage_events       from anon, authenticated;
+revoke all                    on create_throttle    from anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────
 -- 내부 헬퍼
@@ -116,6 +125,35 @@ $$;
 create or replace function _pin_locked(p_lock_until timestamptz)
 returns boolean language sql stable set search_path = pg_catalog as $$
   select p_lock_until is not null and p_lock_until > now()
+$$;
+
+-- 슬라이딩 카운터. 창(window) 안에서 limit 초과면 예외.
+create or replace function _bump_throttle(p_bucket text, p_limit int, p_window interval)
+returns void language plpgsql security definer set search_path = public, pg_catalog as $$
+declare v_count int;
+begin
+  insert into create_throttle (bucket, count, window_start)
+    values (p_bucket, 1, now())
+  on conflict (bucket) do update set
+    count = case when create_throttle.window_start < now() - p_window then 1
+                 else create_throttle.count + 1 end,
+    window_start = case when create_throttle.window_start < now() - p_window then now()
+                        else create_throttle.window_start end
+  returning count into v_count;
+  if v_count > p_limit then
+    raise exception '잠시 후 다시 시도해주세요 (방 생성이 너무 많아요)';
+  end if;
+end $$;
+
+-- PostgREST 가 전달하는 클라이언트 IP (best-effort)
+create or replace function _client_ip()
+returns text language sql stable set search_path = pg_catalog as $$
+  select coalesce(
+    nullif(current_setting('request.headers', true)::json ->> 'cf-connecting-ip', ''),
+    nullif(current_setting('request.headers', true)::json ->> 'x-real-ip', ''),
+    split_part(coalesce(current_setting('request.headers', true)::json ->> 'x-forwarded-for', ''), ',', 1),
+    'unknown'
+  )
 $$;
 
 -- ─────────────────────────────────────────────────────────────
@@ -149,6 +187,10 @@ begin
   if coalesce(p_slot_minutes, 60) not in (30, 60) then
     raise exception '시간 단위는 30분 또는 60분이어야 합니다';
   end if;
+
+  -- 방 생성 남용 방지: IP당 시간당 20개, 전체 시간당 500개
+  perform _bump_throttle('ip:' || _client_ip(), 20, interval '1 hour');
+  perform _bump_throttle('global', 500, interval '1 hour');
 
   -- room id = 접근 자격이므로 추측 불가하게 8 hex (32비트)
   loop
@@ -462,5 +504,24 @@ begin
   end if;
 end $$;
 
--- (선택) 만료된 방 정리 — pg_cron 필요
--- select cron.schedule('gaptime-purge', '0 4 * * *', $$delete from rooms where expires_at <= now()$$);
+-- ─────────────────────────────────────────────────────────────
+-- 자동 정리 (pg_cron) — 대시보드 Database > Extensions 에서 pg_cron 활성화 필요
+-- ─────────────────────────────────────────────────────────────
+create or replace function _gaptime_purge()
+returns void language sql security definer set search_path = public, pg_catalog as $$
+  delete from rooms where expires_at <= now();
+  delete from usage_events where at < now() - interval '90 days';
+  delete from create_throttle where window_start < now() - interval '2 hours';
+$$;
+
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    if exists (select 1 from cron.job where jobname = 'gaptime-purge') then
+      perform cron.unschedule('gaptime-purge');
+    end if;
+    perform cron.schedule('gaptime-purge', '17 * * * *', 'select _gaptime_purge()');
+  else
+    raise notice 'pg_cron 미설치 — 자동 정리 스킵. Extensions 에서 활성화 후 이 파일 재실행.';
+  end if;
+end $$;

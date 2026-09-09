@@ -148,6 +148,9 @@ room_secrets(                    -- 클라이언트 접근 불가
   room_id text pk, owner_token text, owner_pin_hash text null, owner_pin_salt text null,
   pin_fails int, pin_lock_until timestamptz null
 )
+create_throttle(                 -- 방 생성 남용 카운터. 클라이언트 접근 불가
+  bucket text pk, count int, window_start timestamptz
+)
 usage_events(                    -- 클라이언트 접근 불가. 방/제출 삭제돼도 유지. 개인정보 없음
   id bigint pk, kind text, room_id text, day_count int, expected_size int, weekend bool, at timestamptz
 )

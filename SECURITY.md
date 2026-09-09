@@ -44,8 +44,18 @@ everyFreeTime은 **계정이 없다.** 접근 통제는 세 가지 비밀값으�
 - **신뢰 모드 편집**: PIN 을 설정하지 않은 제출은, 같은 방에 있는 누구나(슬러그는 공개)
   덮어쓸 수 있다. When2meet 과 같은 모델 — 방 링크가 곧 신뢰 경계이고, 방장이 잠금·삭제로
   대응한다. 보호를 원하면 제출 시 PIN 을 건다.
-- **방 생성 스팸**: RPC 레벨 IP 제한이 없다. 14일 만료로 상한이 있지만, 배포 시
-  Cloudflare / Vercel 앞단 레이트리밋 또는 Supabase Edge Function 도입을 권장.
+- **방 생성 스팸 / 서버 비용**: `create_room` 에 3중 방어가 있다.
+  1. **글로벌 상한** `_bump_throttle('global', 500, 1h)` — 전체에서 시간당 500개 초과 거부.
+     DB 증가를 시간당 수백 행으로 강제 캡.
+  2. **IP당 상한** `_bump_throttle('ip:'||_client_ip(), 20, 1h)` — best-effort
+     (`cf-connecting-ip` / `x-real-ip` / `x-forwarded-for` 순). 헤더 위조로 우회 가능하나
+     허들은 됨.
+  3. **자동 정리** `_gaptime_purge()` (pg_cron, 매시 17분) — 만료 방 + 90일 지난
+     `usage_events` + 2시간 지난 throttle 행 삭제. steady-state 크기 바운드.
+  강한 방어가 필요하면 **Cloudflare Turnstile**(무료 CAPTCHA)를 방 생성 폼에 붙이고
+  토큰을 `create_room` 에서 `pg_net` 으로 siteverify 하거나, Cloudflare 무료 플랜의
+  Rate Limiting Rule 1개를 `/rest/v1/rpc/create_room` 에 건다.
+- Supabase **Pro 플랜은 spend cap** 을 걸어두면 과금 대신 정지된다.
 - **room id 열거**: 32비트라 대량 스캔이 이론상 가능하나(활성 방 한정, 저가치 타깃),
   비용 대비 실익이 낮다. 필요 시 자릿수를 늘린다(`create_room` 의 `substr(...,1,8)`).
 - **방장 토큰 분실**: PIN 미설정 시 다른 기기로 옮길 수 없다. 방을 새로 만들어야 한다.
