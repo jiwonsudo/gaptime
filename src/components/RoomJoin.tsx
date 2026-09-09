@@ -134,7 +134,10 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
         </button>
       </div>
       <h1 className="text-xl font-extrabold">{room.title || '이름 없는 방'}</h1>
-      <p className="mb-6 text-xs text-ink/40">방 코드 {roomId}</p>
+      <p className="mb-6 text-xs text-ink/40">
+        방 코드 {roomId}
+        {room.host_name && ` · ${room.host_name}님이 만듦`}
+      </p>
 
       {justCreated && (
         <p className="mb-4 rounded-md bg-free/10 px-3 py-2 text-sm text-ink/70">
@@ -163,6 +166,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
               <ShareCard
                 url={shareUrl}
                 code={roomId}
+                shareText={`${room.host_name ? `${room.host_name}님이 ` : ''}'${room.title}' 폼을 만들었어요. 에타(에브리타임) 시간표 스크린샷으로 간편하게 일정을 알려주세요.`}
                 hint="링크를 받은 사람은 바로 자기 시간표를 올릴 수 있어요."
               />
             </Collapsible>

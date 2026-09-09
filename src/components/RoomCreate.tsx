@@ -47,6 +47,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<RoomSettings>({
     title: '',
+    hostName: '',
     includeWeekend: false,
     startHour: DEFAULT_START_HOUR,
     endHour: DEFAULT_END_HOUR,
@@ -62,11 +63,12 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
   const { shakeKey, shake } = useShake();
 
   const titleEmpty = settings.title.trim() === '';
+  const hostEmpty = settings.hostName.trim() === '';
   const pinInvalid = settings.ownerPinEnabled && !/^\d{4}$/.test(settings.ownerPin);
 
   async function handleCreate() {
-    if (titleEmpty) {
-      setError('방 이름을 입력해주세요.');
+    if (titleEmpty || hostEmpty) {
+      setError(titleEmpty ? '방 이름을 입력해주세요.' : '내 이름을 입력해주세요.');
       shake();
       return;
     }
@@ -79,6 +81,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
     try {
       const { room, ownerToken } = await createRoom({
         title: settings.title.trim(),
+        hostName: settings.hostName.trim(),
         dayCount,
         startHour: settings.startHour,
         endHour: settings.endHour,

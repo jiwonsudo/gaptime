@@ -27,8 +27,7 @@ export default function OccupancyEditor({ value, dayCount, startHour, endHour, o
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-ink/60">
-        <b>수업 있는 칸</b>을 칠해주세요. 칸을 탭하거나 쓸어서 바꿉니다. 나머지는 빈 시간으로
-        계산돼요.
+        자동 입력을 확인하고, <b>추가로 불가능한 시간</b>을 선택해주세요. 칸을 탭하거나 쓸어서 가능/불가능 여부를 바꿀 수 있어요.
       </p>
       <div
         className="grid touch-none select-none"

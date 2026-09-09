@@ -10,6 +10,7 @@ create extension if not exists pgcrypto;
 create table if not exists rooms (
   id            text primary key,
   title         text not null default '',
+  host_name     text not null default '',
   day_count     int  not null default 5,
   start_hour    int  not null,
   end_hour      int  not null,
@@ -61,6 +62,8 @@ create table if not exists usage_events (
   at           timestamptz not null default now()
 );
 
+alter table rooms add column if not exists host_name text not null default '';
+
 -- ─────────────────────────────────────────────────────────────
 -- RLS: 읽기만, 쓰기는 RPC 전용
 -- ─────────────────────────────────────────────────────────────
@@ -105,10 +108,11 @@ $$;
 -- 예전 시그니처 정리 (있으면)
 drop function if exists create_room(text,int,int,int,int);
 drop function if exists create_room(int,int,int,int);
+drop function if exists create_room(text,int,int,int,int,text);
 
 create or replace function create_room(
-  p_title text, p_day_count int, p_start_hour int, p_end_hour int, p_expected_size int,
-  p_owner_pin text
+  p_title text, p_host_name text, p_day_count int, p_start_hour int, p_end_hour int,
+  p_expected_size int, p_owner_pin text
 ) returns table (id text, owner_token text)
 language plpgsql security definer set search_path = public, extensions as $$
 declare v_id text; v_token text; v_try int := 0; v_salt text;
@@ -133,8 +137,8 @@ begin
   v_token := encode(gen_random_bytes(18), 'hex');
   v_salt  := encode(gen_random_bytes(8), 'hex');
 
-  insert into rooms (id, title, day_count, start_hour, end_hour, expected_size)
-    values (v_id, left(coalesce(btrim(p_title), ''), 60),
+  insert into rooms (id, title, host_name, day_count, start_hour, end_hour, expected_size)
+    values (v_id, left(coalesce(btrim(p_title), ''), 60), left(coalesce(btrim(p_host_name), ''), 20),
             coalesce(p_day_count, 5), p_start_hour, p_end_hour, p_expected_size);
   insert into room_secrets (room_id, owner_token, owner_pin_hash, owner_pin_salt)
     values (v_id, v_token,
@@ -334,7 +338,7 @@ end $$;
 -- ─────────────────────────────────────────────────────────────
 -- 실행 권한
 -- ─────────────────────────────────────────────────────────────
-grant execute on function create_room(text,int,int,int,int,text)                 to anon, authenticated;
+grant execute on function create_room(text,text,int,int,int,int,text)            to anon, authenticated;
 grant execute on function claim_owner(text,text)                                 to anon, authenticated;
 grant execute on function room_has_owner_pin(text)                               to anon, authenticated;
 grant execute on function submit_occupancy(text,text,text,jsonb,text,text,text)  to anon, authenticated;

@@ -3,6 +3,7 @@ export type Occupancy = boolean[][]; // [day][hour] — true = 수업 있음(불
 export interface Room {
   id: string;
   title: string;
+  host_name: string;
   day_count: number;
   start_hour: number;
   end_hour: number;

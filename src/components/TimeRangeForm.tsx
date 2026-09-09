@@ -5,6 +5,7 @@ import { ValidatedInput } from './ui/validated-input';
 
 export interface RoomSettings {
   title: string;
+  hostName: string;
   includeWeekend: boolean;
   startHour: number;
   endHour: number;
@@ -32,6 +33,16 @@ export default function TimeRangeForm({ value, onChange }: Props) {
           maxLength={60}
           value={value.title}
           onChange={(e) => set('title', e.target.value)}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm font-semibold">
+        내 이름 <span className="font-normal text-ink/40">(방장, 공유 메시지에 들어가요)</span>
+        <Input
+          placeholder="예: 지원"
+          maxLength={20}
+          value={value.hostName}
+          onChange={(e) => set('hostName', e.target.value)}
         />
       </label>
 

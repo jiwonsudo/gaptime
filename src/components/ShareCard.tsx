@@ -7,6 +7,7 @@ interface Props {
   code?: string;
   label?: string;
   hint?: string;
+  shareText?: string;
 }
 
 function useCopy() {
@@ -23,7 +24,13 @@ function useCopy() {
   return { copied, copy };
 }
 
-export default function ShareCard({ url, code, label = '참여 링크', hint }: Props) {
+export default function ShareCard({
+  url,
+  code,
+  label = '참여 링크',
+  hint,
+  shareText,
+}: Props) {
   const [qr, setQr] = useState('');
   const [showQr, setShowQr] = useState(false);
   const link = useCopy();
@@ -64,7 +71,11 @@ export default function ShareCard({ url, code, label = '참여 링크', hint }: 
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigator.share({ url }).catch(() => {})}
+              onClick={() =>
+                navigator
+                  .share({ title: 'everyFreeTime', text: shareText, url })
+                  .catch(() => {})
+              }
             >
               공유
             </Button>

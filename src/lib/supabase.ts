@@ -11,6 +11,7 @@ export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'publ
 // ── 방 ────────────────────────────────────────────────────────
 export async function createRoom(input: {
   title: string;
+  hostName: string;
   dayCount: number;
   startHour: number;
   endHour: number;
@@ -19,6 +20,7 @@ export async function createRoom(input: {
 }): Promise<{ room: Room; ownerToken: string }> {
   const { data, error } = await supabase.rpc('create_room', {
     p_title: input.title,
+    p_host_name: input.hostName,
     p_day_count: input.dayCount,
     p_start_hour: input.startHour,
     p_end_hour: input.endHour,
