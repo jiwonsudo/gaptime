@@ -129,7 +129,10 @@ begin
 
   loop
     v_id := lower(substr(encode(gen_random_bytes(8), 'hex'), 1, 6));
-    exit when not exists (select 1 from rooms r where r.id = v_id);
+    -- 문서/플레이스홀더에 쓰는 예시 코드는 실제로 발급하지 않는다
+    if v_id not in ('ab3f9k') and not exists (select 1 from rooms r where r.id = v_id) then
+      exit;
+    end if;
     v_try := v_try + 1;
     if v_try > 10 then raise exception 'room id 발급 실패'; end if;
   end loop;
