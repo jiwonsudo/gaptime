@@ -4,7 +4,9 @@ type SlotRoom = Pick<Room, 'start_hour' | 'end_hour' | 'slot_minutes'>;
 
 // 방의 시간 칸(슬롯) 수
 export function roomSlotCount(room: SlotRoom): number {
-  return Math.max(1, ((room.end_hour - room.start_hour) * 60) / room.slot_minutes);
+  const slot = room.slot_minutes === 30 ? 30 : 60;
+  const n = Math.round(((room.end_hour - room.start_hour) * 60) / slot);
+  return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
 export function emptyOccupancy(dayCount: number, slotCount: number): Occupancy {

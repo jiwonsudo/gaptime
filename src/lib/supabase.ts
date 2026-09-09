@@ -42,7 +42,20 @@ export async function createRoom(input: {
 export async function getRoom(id: string): Promise<Room | null> {
   const { data, error } = await supabase.from('rooms').select().eq('id', id).maybeSingle();
   if (error) throw error;
-  return (data as Room) ?? null;
+  if (!data) return null;
+  return normalizeRoom(data as Record<string, unknown>);
+}
+
+// 예전 방(컬럼이 없던 시절) 대비 기본값 보정
+function normalizeRoom(r: Record<string, unknown>): Room {
+  return {
+    ...(r as unknown as Room),
+    host_name: (r.host_name as string) ?? '',
+    day_count: Number(r.day_count) || 5,
+    slot_minutes: r.slot_minutes === 30 ? 30 : 60,
+    expected_size: Number(r.expected_size) || 4,
+    locked: Boolean(r.locked),
+  };
 }
 
 // ── 제출 ──────────────────────────────────────────────────────
