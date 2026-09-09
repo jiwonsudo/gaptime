@@ -184,7 +184,13 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
               onChange={(e) => setCode(e.target.value.trim())}
               onKeyDown={(e) => e.key === 'Enter' && code && navigate(`/room/${code}`)}
             />
-            <Button size="md" variant="cta" disabled={!code} onClick={() => navigate(`/room/${code}`)}>
+            <Button
+              size="md"
+              variant="cta"
+              className="shrink-0 whitespace-nowrap"
+              disabled={!code}
+              onClick={() => navigate(`/room/${code}`)}
+            >
               들어가기
             </Button>
           </div>
