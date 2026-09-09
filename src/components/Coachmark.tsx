@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export interface TourStep {
   selector: string; // 가리킬 요소 (없으면 이 단계는 건너뜀)
@@ -12,26 +12,21 @@ interface Props {
   onClose: () => void;
 }
 
-interface Placed {
-  rect: DOMRect;
-  bubbleTop: number;
-  bubbleLeft: number;
-  arrow: 'up' | 'down';
-}
-
 const PAD = 8;
+const MARGIN = 16; // 화면 가장자리 최소 여백
+const GAP = 12; // 대상과 말풍선 사이 간격
 const BUBBLE_W = 300;
 
 export default function Coachmark({ steps, run, onClose }: Props) {
   const [i, setI] = useState(0);
-  const [placed, setPlaced] = useState<Placed | null>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
 
-  // run 이 켜질 때 처음부터
   useEffect(() => {
     if (run) setI(0);
   }, [run]);
 
-  // 현재 단계의 유효한 요소를 찾을 때까지 전진
   const resolveIndex = useCallback(
     (from: number, dir: 1 | -1): number => {
       let n = from;
@@ -55,20 +50,15 @@ export default function Coachmark({ steps, run, onClose }: Props) {
       else setI(next);
       return;
     }
-    const rect = el.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const arrow: 'up' | 'down' = spaceBelow > 180 ? 'up' : 'down';
-    const bubbleTop = arrow === 'up' ? rect.bottom + PAD + 10 : rect.top - PAD - 10;
-    let bubbleLeft = rect.left + rect.width / 2 - BUBBLE_W / 2;
-    bubbleLeft = Math.max(12, Math.min(bubbleLeft, window.innerWidth - BUBBLE_W - 12));
-    setPlaced({ rect, bubbleTop, bubbleLeft, arrow });
+    setRect(el.getBoundingClientRect());
   }, [run, steps, i, resolveIndex, onClose]);
 
+  // 대상 요소를 화면 중앙 근처로 스크롤한 뒤 측정
   useLayoutEffect(() => {
     if (!run) return;
     const el = document.querySelector(steps[i]?.selector ?? '') as HTMLElement | null;
     el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    const t = setTimeout(measure, 260);
+    const t = setTimeout(measure, 280);
     return () => clearTimeout(t);
   }, [run, i, steps, measure]);
 
@@ -84,25 +74,44 @@ export default function Coachmark({ steps, run, onClose }: Props) {
 
   useEffect(() => {
     if (!run) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [run, onClose]);
 
-  if (!run || !placed) return null;
+  // 말풍선 실제 높이를 재서 화면 안에 들어오도록 배치 (위/아래 자동, 클램프)
+  useLayoutEffect(() => {
+    if (!rect || !bubbleRef.current) return;
+    const bh = bubbleRef.current.offsetHeight;
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+
+    const spaceBelow = vh - rect.bottom - GAP - MARGIN;
+    const spaceAbove = rect.top - GAP - MARGIN;
+
+    let top: number;
+    if (spaceBelow >= bh) top = rect.bottom + GAP;
+    else if (spaceAbove >= bh) top = rect.top - GAP - bh;
+    else top = Math.max(MARGIN, Math.min(rect.bottom + GAP, vh - bh - MARGIN));
+
+    top = Math.max(MARGIN, Math.min(top, vh - bh - MARGIN));
+
+    let left = rect.left + rect.width / 2 - BUBBLE_W / 2;
+    left = Math.max(MARGIN, Math.min(left, vw - BUBBLE_W - MARGIN));
+
+    setPos({ top, left });
+  }, [rect, i]);
+
+  if (!run || !rect) return null;
 
   const step = steps[i];
   const total = steps.filter((s) => document.querySelector(s.selector)).length;
-  const shownIndex =
-    steps.slice(0, i + 1).filter((s) => document.querySelector(s.selector)).length;
+  const shownIndex = steps.slice(0, i + 1).filter((s) => document.querySelector(s.selector)).length;
   const isLast = resolveIndex(i + 1, 1) === -1;
-  const { rect } = placed;
+  const hasPrev = resolveIndex(i - 1, -1) !== -1;
 
   return (
     <div className="fixed inset-0 z-[60]" onClick={onClose}>
-      {/* 스포트라이트 */}
       <div
         className="pointer-events-none absolute rounded-lg transition-all duration-200"
         style={{
@@ -113,14 +122,15 @@ export default function Coachmark({ steps, run, onClose }: Props) {
           boxShadow: '0 0 0 9999px rgba(28,35,29,0.55)',
         }}
       />
-      {/* 말풍선 */}
       <div
-        className="absolute rounded-xl border border-ink/10 bg-paper p-4 shadow-2xl"
+        ref={bubbleRef}
+        className="absolute flex flex-col overflow-y-auto rounded-xl border border-ink/10 bg-paper p-4 shadow-2xl"
         style={{
           width: BUBBLE_W,
-          left: placed.bubbleLeft,
-          top: placed.bubbleTop,
-          transform: placed.arrow === 'down' ? 'translateY(-100%)' : undefined,
+          left: pos?.left ?? -9999,
+          top: pos?.top ?? -9999,
+          maxHeight: `calc(100vh - ${MARGIN * 2}px)`,
+          visibility: pos ? 'visible' : 'hidden',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -137,7 +147,7 @@ export default function Coachmark({ steps, run, onClose }: Props) {
         <div className="mt-3 flex justify-between">
           <button
             className="text-sm text-ink/50 disabled:opacity-30"
-            disabled={resolveIndex(i - 1, -1) === -1}
+            disabled={!hasPrev}
             onClick={() => {
               const p = resolveIndex(i - 1, -1);
               if (p !== -1) setI(p);

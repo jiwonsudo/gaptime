@@ -10,7 +10,9 @@ import OwnerPanel from './OwnerPanel';
 import OwnerClaim from './OwnerClaim';
 import ParticipantList from './ParticipantList';
 import Logo from './Logo';
+import Footer from './Footer';
 import AdBanner from './AdBanner';
+import { Collapsible } from './ui/collapsible';
 import Coachmark, { type TourStep } from './Coachmark';
 
 interface Props {
@@ -23,13 +25,13 @@ interface Props {
 const OWNER_STEPS: TourStep[] = [
   {
     selector: '[data-tour="share"]',
-    title: '이 링크를 팀에 뿌리세요',
-    body: '“참여 링크”를 누르면 링크와 QR이 나와요. 단톡방에 붙여넣으면 각자 자기 폰에서 시간표를 올립니다.',
+    title: '팀에 링크나 방 코드를 전파하세요',
+    body: '여기 “참여 링크 · 방 코드”를 펼치면 링크·QR·방 코드가 나와요. 단톡방에 링크를 붙여넣거나, 방 코드를 알려주면 됩니다(받은 사람은 첫 화면 “이미 방이 있나요?”에 코드 입력).',
   },
   {
     selector: '[data-tour="submit"]',
     title: '방장도 시간표를 올려요',
-    body: '방장 본인 시간표도 여기서 이름 넣고 올려야 결과에 반영돼요.',
+    body: '방장 본인 시간표도 여기서 닉네임 넣고 올려야 결과에 반영돼요.',
   },
   {
     selector: '[data-tour="heatmap"]',
@@ -39,7 +41,7 @@ const OWNER_STEPS: TourStep[] = [
   {
     selector: '[data-tour="owner"]',
     title: '방장 관리',
-    body: '방 이름·예상 인원 수정, 제출 마감, 장난 제출 삭제, 방 삭제. 다른 기기에서 쓰려면 방장 PIN이 필요해요.',
+    body: '방 이름·인원 수정, 제출 마감, 장난 제출 삭제, 방 삭제. 다른 기기에서 관리하려면 방장 PIN이 필요하고, 방 링크·코드를 기억해둬야 해요.',
   },
 ];
 
@@ -72,7 +74,6 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [ownerToken, setOwnerTokenState] = useState<string | null>(null);
-  const [showShare, setShowShare] = useState(justCreated);
 
   const refresh = useCallback(() => {
     if (!roomId) return;
@@ -112,27 +113,28 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   const shareUrl = `${window.location.origin}/r/${roomId}`;
 
   if (loadErr) {
-    return <div className="mx-auto max-w-2xl px-5 py-16 text-sm text-cta">{loadErr}</div>;
+    return (
+      <>
+        <div className="mx-auto max-w-2xl px-5 py-16 text-sm text-cta">{loadErr}</div>
+        <Footer />
+      </>
+    );
   }
   if (!room) {
     return <div className="mx-auto max-w-2xl px-5 py-16 text-sm text-ink/50">불러오는 중</div>;
   }
 
   return (
+    <>
     <div className="mx-auto max-w-4xl px-5 py-10">
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <Logo className="text-base" />
-        <div className="flex shrink-0 gap-3 text-xs text-ink/50">
-          <button data-tour="share" className="underline" onClick={() => setShowShare((v) => !v)}>
-            {showShare ? '링크 숨기기' : '참여 링크'}
-          </button>
-          <button className="underline" onClick={onOpenTour}>
-            사용법
-          </button>
-        </div>
+        <button className="shrink-0 text-xs text-ink/50 underline" onClick={onOpenTour}>
+          사용법
+        </button>
       </div>
       <h1 className="text-xl font-extrabold">{room.title || '이름 없는 방'}</h1>
-      <p className="mb-6 text-xs text-ink/40">방 {roomId}</p>
+      <p className="mb-6 text-xs text-ink/40">방 코드 {roomId}</p>
 
       {justCreated && (
         <p className="mb-4 rounded-md bg-free/10 px-3 py-2 text-sm text-ink/70">
@@ -156,12 +158,15 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
         </div>
 
         <div className="flex flex-col gap-5">
-          {showShare && (
-            <ShareCard
-              url={shareUrl}
-              hint="링크를 받은 사람은 바로 자기 시간표를 올릴 수 있어요."
-            />
-          )}
+          <div data-tour="share">
+            <Collapsible title="참여 링크 · 방 코드" defaultOpen={justCreated}>
+              <ShareCard
+                url={shareUrl}
+                code={roomId}
+                hint="링크를 받은 사람은 바로 자기 시간표를 올릴 수 있어요."
+              />
+            </Collapsible>
+          </div>
           {ownerToken ? (
             <div data-tour="owner">
               <OwnerPanel
@@ -192,5 +197,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
         onClose={onCloseTour}
       />
     </div>
+    <Footer />
+    </>
   );
 }

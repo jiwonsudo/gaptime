@@ -1,5 +1,7 @@
+import { HOUR_MAX_END, HOUR_MIN_START } from '@/types';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
+import { ValidatedInput } from './ui/validated-input';
 
 export interface RoomSettings {
   title: string;
@@ -39,29 +41,39 @@ export default function TimeRangeForm({ value, onChange }: Props) {
         onChange={(e) => set('includeWeekend', e.target.checked)}
       />
 
-      <label className="flex flex-col gap-1 text-sm font-semibold">
-        시작 시각 <span className="font-normal text-ink/40">(에타 기본 8시)</span>
-        <Input
-          type="number"
-          min={6}
-          max={22}
-          value={value.startHour}
-          onChange={(e) => set('startHour', clamp(+e.target.value, 6, value.endHour - 1))}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-sm font-semibold">
-        종료 시각 <span className="font-normal text-ink/40">(24 = 자정)</span>
-        <Input
-          type="number"
-          min={9}
-          max={24}
-          value={value.endHour}
-          onChange={(e) => set('endHour', clamp(+e.target.value, value.startHour + 1, 24))}
-        />
-      </label>
+      <ValidatedInput
+        label="시작 시각"
+        type="number"
+        inputMode="numeric"
+        value={String(value.startHour)}
+        validate={(raw) => {
+          const n = Number(raw);
+          if (raw.trim() === '' || Number.isNaN(n)) return '숫자를 입력해주세요';
+          if (n < HOUR_MIN_START) return `${HOUR_MIN_START}시부터 정할 수 있어요`;
+          if (n >= value.endHour) return '종료 시각보다 빨라야 해요';
+          return null;
+        }}
+        onCommit={(raw) => set('startHour', Number(raw))}
+      />
+
+      <ValidatedInput
+        label="종료 시각"
+        type="number"
+        inputMode="numeric"
+        value={String(value.endHour)}
+        validate={(raw) => {
+          const n = Number(raw);
+          if (raw.trim() === '' || Number.isNaN(n)) return '숫자를 입력해주세요';
+          if (n > HOUR_MAX_END) return `${HOUR_MAX_END}시(자정)까지만 가능해요`;
+          if (n <= value.startHour) return '시작 시각보다 늦어야 해요';
+          return null;
+        }}
+        onCommit={(raw) => set('endHour', Number(raw))}
+      />
 
       <label className="flex flex-col gap-1 text-sm font-semibold">
-        예상 인원수 <span className="tnum font-normal text-ink/50">{value.expectedSize}명</span>
+        함께할 인원 <span className="font-normal text-ink/40">(본인 포함)</span>
+        <span className="tnum text-sm font-normal text-ink/50">{value.expectedSize}명</span>
         <input
           type="range"
           min={2}
@@ -78,18 +90,20 @@ export default function TimeRangeForm({ value, onChange }: Props) {
         onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
       />
       {value.ownerPinEnabled && (
-        <Input
+        <ValidatedInput
+          type="text"
           inputMode="numeric"
           maxLength={4}
           placeholder="숫자 4자리"
           value={value.ownerPin}
-          onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+          validate={(raw) => {
+            if (raw === '') return null;
+            if (!/^\d{0,4}$/.test(raw)) return '숫자만 입력해주세요';
+            return null;
+          }}
+          onCommit={(raw) => set('ownerPin', raw.replace(/\D/g, '').slice(0, 4))}
         />
       )}
     </div>
   );
-}
-
-function clamp(n: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, Number.isNaN(n) ? lo : n));
 }

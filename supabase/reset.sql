@@ -5,6 +5,7 @@ drop table if exists submission_editors cascade;
 drop table if exists room_secrets cascade;
 drop table if exists submissions cascade;
 drop table if exists rooms cascade;
+drop table if exists usage_events cascade;
 
 drop function if exists create_room(text,int,int,int,int,text) cascade;
 drop function if exists create_room(text,int,int,int,int) cascade;

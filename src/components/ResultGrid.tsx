@@ -12,6 +12,7 @@ interface Props {
   endHour: number;
   expectedSize: number;
   submissions: Submission[];
+  preview?: boolean; // 방 생성 화면 미리보기 — 안내 문구 숨김
 }
 
 const MAX_HOVER_NAMES = 8;
@@ -22,6 +23,7 @@ export default function ResultGrid({
   endHour,
   expectedSize,
   submissions,
+  preview = false,
 }: Props) {
   const hourCount = Math.max(1, endHour - startHour);
   const grid = useMemo(
@@ -119,7 +121,9 @@ export default function ResultGrid({
       </div>
 
       {!hasData ? (
-        <p className="text-sm text-ink/50">아직 아무도 시간표를 올리지 않았어요.</p>
+        preview ? null : (
+          <p className="text-sm text-ink/50">아직 아무도 시간표를 올리지 않았어요.</p>
+        )
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" onClick={copyExport}>

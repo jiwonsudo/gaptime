@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { checkNickname, isValidPin } from '@/lib/nickname';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Checkbox } from './ui/checkbox';
 
 interface Props {
   takenSlugs: string[];
@@ -37,10 +38,11 @@ export default function NicknamePicker({ takenSlugs, onConfirm, onCancel }: Prop
       )}
       <p className="text-xs text-ink/40">이 이름은 방에 참여한 사람들 모두에게 보여요.</p>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={usePin} onChange={(e) => setUsePin(e.target.checked)} />
-        PIN 4자리 설정 (다른 기기에서 수정할 때 씀)
-      </label>
+      <Checkbox
+        label="PIN 4자리 설정 (다른 기기에서 수정할 때 씀)"
+        checked={usePin}
+        onChange={(e) => setUsePin(e.target.checked)}
+      />
       {usePin && (
         <Input
           inputMode="numeric"

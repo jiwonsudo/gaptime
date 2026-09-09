@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import RoomCreate from './components/RoomCreate';
 import RoomJoin from './components/RoomJoin';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import { hasSeenTutorial, markTutorialSeen } from './lib/roomAuth';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
         path="/r/:roomId/:slug"
         element={<RoomJoin tour={tour} onOpenTour={openTour} onCloseTour={closeTour} />}
       />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

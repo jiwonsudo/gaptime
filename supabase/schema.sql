@@ -16,7 +16,7 @@ create table if not exists rooms (
   expected_size int  not null default 4,
   locked        boolean not null default false,
   created_at    timestamptz not null default now(),
-  expires_at    timestamptz not null default now() + interval '30 days'
+  expires_at    timestamptz not null default now() + interval '14 days'
 );
 
 create table if not exists submissions (
@@ -50,6 +50,17 @@ create table if not exists room_secrets (
 alter table room_secrets add column if not exists owner_pin_hash text;
 alter table room_secrets add column if not exists owner_pin_salt text;
 
+-- 익명 사용 통계 (방/제출이 삭제돼도 유지). 개인 식별 정보 없음.
+create table if not exists usage_events (
+  id           bigint generated always as identity primary key,
+  kind         text not null,           -- 'room_created' | 'submission'
+  room_id      text,                    -- FK 아님(삭제돼도 남김)
+  day_count    int,
+  expected_size int,
+  weekend      boolean,
+  at           timestamptz not null default now()
+);
+
 -- ─────────────────────────────────────────────────────────────
 -- RLS: 읽기만, 쓰기는 RPC 전용
 -- ─────────────────────────────────────────────────────────────
@@ -57,6 +68,7 @@ alter table rooms              enable row level security;
 alter table submissions        enable row level security;
 alter table submission_editors enable row level security;
 alter table room_secrets       enable row level security;
+alter table usage_events       enable row level security;
 
 drop policy if exists "rooms read" on rooms;
 create policy "rooms read" on rooms for select using (expires_at > now());
@@ -69,6 +81,7 @@ revoke insert, update, delete on rooms              from anon, authenticated;
 revoke insert, update, delete on submissions        from anon, authenticated;
 revoke all                    on submission_editors from anon, authenticated;
 revoke all                    on room_secrets       from anon, authenticated;
+revoke all                    on usage_events       from anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────
 -- 내부 헬퍼
@@ -100,8 +113,8 @@ create or replace function create_room(
 language plpgsql security definer set search_path = public, extensions as $$
 declare v_id text; v_token text; v_try int := 0; v_salt text;
 begin
-  if p_start_hour < 6 or p_end_hour > 24 or p_start_hour >= p_end_hour then
-    raise exception '시간 범위가 올바르지 않습니다 (6시~자정)';
+  if p_start_hour < 8 or p_end_hour > 24 or p_start_hour >= p_end_hour then
+    raise exception '시간 범위가 올바르지 않습니다 (8시~자정)';
   end if;
   if coalesce(p_expected_size, 4) < 2 or p_expected_size > 30 then
     raise exception '예상 인원수는 2~30명이어야 합니다';
@@ -127,6 +140,9 @@ begin
     values (v_id, v_token,
             case when p_owner_pin is not null then _hash_pin(p_owner_pin, v_salt) end,
             v_salt);
+
+  insert into usage_events (kind, room_id, day_count, expected_size, weekend)
+    values ('room_created', v_id, coalesce(p_day_count, 5), p_expected_size, coalesce(p_day_count, 5) >= 7);
 
   return query select v_id, v_token;
 end $$;
@@ -227,6 +243,8 @@ begin
     values (v_sub_id, p_room_id, p_slug, v_token,
             case when p_set_pin is not null then _hash_pin(p_set_pin, v_salt) end,
             v_salt);
+
+  insert into usage_events (kind, room_id) values ('submission', p_room_id);
   return v_token;
 end $$;
 

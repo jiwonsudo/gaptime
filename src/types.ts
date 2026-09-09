@@ -30,8 +30,8 @@ export interface BoundingBox {
 
 export const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 
-export const HOUR_MIN_START = 6;
-export const HOUR_MAX_END = 24;
+export const HOUR_MIN_START = 8; // 에타 시간표가 8시부터 렌더됨
+export const HOUR_MAX_END = 24; // 자정
 export const DEFAULT_START_HOUR = 8;
 export const DEFAULT_END_HOUR = 18;
 

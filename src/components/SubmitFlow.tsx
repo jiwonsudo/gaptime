@@ -22,6 +22,7 @@ import NicknamePicker from './NicknamePicker';
 import ShareCard from './ShareCard';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { ConfirmDialog } from './ui/confirm-dialog';
 
 interface Props {
   room: Room;
@@ -45,6 +46,7 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
   const [occ, setOcc] = useState<Occupancy>(() => emptyOccupancy(room.day_count, hourCount));
   const [err, setErr] = useState<string | null>(null);
   const [personalUrl, setPersonalUrl] = useState('');
+  const [confirmDel, setConfirmDel] = useState(false);
 
   // 같은 기기에 저장된 내 제출 → 바로 수정 진입
   const local = useMemo(() => getLocalEditor(room.id), [room.id]);
@@ -102,7 +104,6 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
 
   async function doDelete() {
     if (!editorToken) return;
-    if (!confirm('내 시간표를 삭제할까요?')) return;
     try {
       await deleteOwnSubmission(room.id, slug, editorToken);
       clearLocalEditor(room.id);
@@ -221,7 +222,7 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
               {editorToken ? '수정 저장' : '제출'}
             </Button>
             {editorToken && (
-              <Button variant="outline" size="sm" onClick={doDelete}>
+              <Button variant="outline" size="sm" onClick={() => setConfirmDel(true)}>
                 삭제
               </Button>
             )}
@@ -274,6 +275,19 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
       )}
 
       {err && <p className="text-xs text-cta">{err}</p>}
+
+      <ConfirmDialog
+        open={confirmDel}
+        title="내 시간표 삭제"
+        body="이 방에서 내가 올린 시간표를 삭제할까요? 다시 올릴 수 있어요."
+        confirmLabel="삭제"
+        danger
+        onCancel={() => setConfirmDel(false)}
+        onConfirm={() => {
+          setConfirmDel(false);
+          doDelete();
+        }}
+      />
     </div>
   );
 }
