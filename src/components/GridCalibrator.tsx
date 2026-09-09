@@ -1,27 +1,33 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { BoundingBox } from '@/types';
-import { DAY_LABELS, EVERYTIME_IMAGE_END, EVERYTIME_IMAGE_START } from '@/types';
+import {
+  DAY_LABELS,
+  EVERYTIME_IMAGE_DAYS,
+  EVERYTIME_IMAGE_END,
+  EVERYTIME_IMAGE_START,
+} from '@/types';
 import { formatHour } from '@/lib/timeFormat';
 import { Button } from './ui/button';
 
 interface Props {
   image: HTMLImageElement;
-  dayCount: number;
   roomStartHour: number;
   roomEndHour: number;
+  weekend: boolean; // 방이 토·일 포함인지 (안내 문구용)
   onConfirm: (box: BoundingBox) => void; // 원본 이미지 픽셀 좌표
   onBack: () => void;
 }
 
 const MAX_W = 520;
 const IMG_ROWS = EVERYTIME_IMAGE_END - EVERYTIME_IMAGE_START; // 10
+const IMG_COLS = EVERYTIME_IMAGE_DAYS; // 5 (월~금)
 type DragMode = { kind: 'tl' | 'br' | 'move'; startX: number; startY: number; box: BoundingBox };
 
 export default function GridCalibrator({
   image,
-  dayCount,
   roomStartHour,
   roomEndHour,
+  weekend,
   onConfirm,
   onBack,
 }: Props) {
@@ -120,8 +126,8 @@ export default function GridCalibrator({
 
     ctx.strokeStyle = 'rgba(28,35,29,0.35)';
     ctx.lineWidth = 1;
-    for (let d = 1; d < dayCount; d++) {
-      const x = x0 + (bw * d) / dayCount;
+    for (let d = 1; d < IMG_COLS; d++) {
+      const x = x0 + (bw * d) / IMG_COLS;
       ctx.beginPath();
       ctx.moveTo(x, y0);
       ctx.lineTo(x, y1);
@@ -135,7 +141,7 @@ export default function GridCalibrator({
       ctx.stroke();
     }
     ctx.restore();
-  }, [box, image, dispW, dispH, dayCount, roomStartHour, roomEndHour]);
+  }, [box, image, dispW, dispH, roomStartHour, roomEndHour]);
 
   function confirm() {
     onConfirm({
@@ -152,9 +158,10 @@ export default function GridCalibrator({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink/60">
-        주황색 두 점을 에타 시간표 격자의 <b>맨 위(8시)·맨 아래(18시) 모서리</b>에 맞춰주세요. 에타는
-        항상 8시~18시 10칸이에요. 초록 부분이 이 방의 시간대(
-        {formatHour(roomStartHour)}~{formatHour(roomEndHour)})예요.
+        에타 시간표는 <b>항상 월~금 5칸 × 오전 8시~오후 6시 10칸</b>으로 고정이에요. 주황색 두 점을
+        그 격자의 좌상단(월요일 8시)·우하단(금요일 18시) 모서리에 맞추면 됩니다. 초록 부분이 이 방의
+        시간대({formatHour(roomStartHour)}~{formatHour(roomEndHour)})예요.
+        {weekend && ' 토·일은 제출 후 직접 칠하면 돼요.'}
       </p>
 
       <div ref={wrapRef} className="relative w-full select-none" style={{ maxWidth: MAX_W }}>
@@ -179,7 +186,7 @@ export default function GridCalibrator({
         <div className={handle} style={{ left: box.x1, top: box.y1 }} onPointerDown={startDrag('br')} />
       </div>
 
-      <div className="text-xs text-ink/40">{DAY_LABELS.slice(0, dayCount).join(' ')}</div>
+      <div className="text-xs text-ink/40">{DAY_LABELS.slice(0, IMG_COLS).join(' ')}</div>
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={onBack}>

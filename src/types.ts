@@ -35,6 +35,7 @@ export const HOUR_MAX_END = 24; // 자정
 export const DEFAULT_START_HOUR = 8;
 export const DEFAULT_END_HOUR = 18;
 
-// 에타 시간표 스크린샷은 항상 08~18시, 1시간 단위 10칸 고정.
+// 에타 시간표 스크린샷은 항상 월~금 5칸 × 08~18시 10칸 고정 (행·열 불변).
 export const EVERYTIME_IMAGE_START = 8;
 export const EVERYTIME_IMAGE_END = 18;
+export const EVERYTIME_IMAGE_DAYS = 5; // 월~금

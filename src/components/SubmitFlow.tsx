@@ -186,9 +186,9 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
       {stage === 'calibrate' && image && (
         <GridCalibrator
           image={image}
-          dayCount={room.day_count}
           roomStartHour={room.start_hour}
           roomEndHour={room.end_hour}
+          weekend={room.day_count >= 7}
           onBack={() => {
             setImage(null);
             setStage('upload');

@@ -84,26 +84,28 @@ export default function TimeRangeForm({ value, onChange }: Props) {
         />
       </label>
 
-      <Checkbox
-        label="방장 PIN 설정 (다른 기기에서 방 관리할 때)"
-        checked={value.ownerPinEnabled}
-        onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
-      />
-      {value.ownerPinEnabled && (
-        <ValidatedInput
-          type="text"
-          inputMode="numeric"
-          maxLength={4}
-          placeholder="숫자 4자리"
-          value={value.ownerPin}
-          validate={(raw) => {
-            if (raw === '') return null;
-            if (!/^\d{0,4}$/.test(raw)) return '숫자만 입력해주세요';
-            return null;
-          }}
-          onCommit={(raw) => set('ownerPin', raw.replace(/\D/g, '').slice(0, 4))}
+      <div className="flex flex-col gap-2" data-tour="owner-pin">
+        <Checkbox
+          label="방장 PIN 설정 (다른 기기에서 방 관리할 때)"
+          checked={value.ownerPinEnabled}
+          onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
         />
-      )}
+        {value.ownerPinEnabled && (
+          <ValidatedInput
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            placeholder="숫자 4자리"
+            value={value.ownerPin}
+            validate={(raw) => {
+              if (raw === '') return null;
+              if (!/^\d{0,4}$/.test(raw)) return '숫자만 입력해주세요';
+              return null;
+            }}
+            onCommit={(raw) => set('ownerPin', raw.replace(/\D/g, '').slice(0, 4))}
+          />
+        )}
+      </div>
     </div>
   );
 }

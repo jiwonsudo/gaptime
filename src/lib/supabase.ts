@@ -136,6 +136,7 @@ export async function updateRoomAsOwner(input: {
   expectedSize?: number;
   locked?: boolean;
   title?: string;
+  dayCount?: number;
 }): Promise<void> {
   const { error } = await supabase.rpc('update_room_as_owner', {
     p_room_id: input.roomId,
@@ -143,6 +144,7 @@ export async function updateRoomAsOwner(input: {
     p_expected_size: input.expectedSize ?? null,
     p_locked: input.locked ?? null,
     p_title: input.title ?? null,
+    p_day_count: input.dayCount ?? null,
   });
   if (error) throw error;
 }

@@ -29,15 +29,21 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
   const [title, setTitle] = useState(room.title);
   const [locked, setLocked] = useState(room.locked);
   const [size, setSize] = useState(room.expected_size);
+  const [weekend, setWeekend] = useState(room.day_count >= 7);
 
   useEffect(() => {
     setTitle(room.title);
     setLocked(room.locked);
     setSize(room.expected_size);
-  }, [room.title, room.locked, room.expected_size]);
+    setWeekend(room.day_count >= 7);
+  }, [room.title, room.locked, room.expected_size, room.day_count]);
 
+  const nextDayCount = weekend ? 7 : 5;
   const dirty =
-    title.trim() !== room.title || locked !== room.locked || size !== room.expected_size;
+    title.trim() !== room.title ||
+    locked !== room.locked ||
+    size !== room.expected_size ||
+    nextDayCount !== room.day_count;
   const titleEmpty = title.trim() === '';
 
   const [delSub, setDelSub] = useState<Submission | null>(null);
@@ -68,6 +74,7 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
         title: title.trim(),
         locked,
         expectedSize: size,
+        dayCount: nextDayCount,
       })
     );
   }
@@ -85,6 +92,13 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
             className={titleEmpty ? 'border-cta ring-2 ring-cta/30' : undefined}
           />
         </label>
+
+        <Checkbox
+          label="토·일 포함"
+          checked={weekend}
+          disabled={busy}
+          onChange={(e) => setWeekend(e.target.checked)}
+        />
 
         <Checkbox
           label="제출 마감 (더 이상 시간표를 받지 않음)"

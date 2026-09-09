@@ -303,18 +303,24 @@ begin
 end $$;
 
 drop function if exists update_room_as_owner(text,text,int,boolean);
+drop function if exists update_room_as_owner(text,text,int,boolean,text);
 create or replace function update_room_as_owner(
-  p_room_id text, p_owner_token text, p_expected_size int, p_locked boolean, p_title text
+  p_room_id text, p_owner_token text, p_expected_size int, p_locked boolean,
+  p_title text, p_day_count int
 ) returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not verify_owner(p_room_id, p_owner_token) then raise exception '권한이 없습니다'; end if;
   if p_expected_size is not null and (p_expected_size < 2 or p_expected_size > 30) then
-    raise exception '예상 인원수는 2~30명이어야 합니다';
+    raise exception '인원수는 2~30명이어야 합니다';
+  end if;
+  if p_day_count is not null and p_day_count not in (5, 7) then
+    raise exception '요일 수는 5(월~금) 또는 7(월~일)만 됩니다';
   end if;
   update rooms set
     expected_size = coalesce(p_expected_size, expected_size),
     locked        = coalesce(p_locked, locked),
-    title         = coalesce(left(btrim(p_title), 60), title)
+    title         = coalesce(left(btrim(p_title), 60), title),
+    day_count     = coalesce(p_day_count, day_count)
   where id = p_room_id;
 end $$;
 
@@ -337,7 +343,7 @@ grant execute on function editor_has_pin(text,text)                             
 grant execute on function delete_own_submission(text,text,text)                  to anon, authenticated;
 grant execute on function verify_owner(text,text)                                to anon, authenticated;
 grant execute on function delete_submission_as_owner(uuid,text)                  to anon, authenticated;
-grant execute on function update_room_as_owner(text,text,int,boolean,text)       to anon, authenticated;
+grant execute on function update_room_as_owner(text,text,int,boolean,text,int)   to anon, authenticated;
 grant execute on function delete_room_as_owner(text,text)                        to anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────
