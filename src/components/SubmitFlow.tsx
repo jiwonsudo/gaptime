@@ -192,19 +192,11 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
             setImage(null);
             setStage('upload');
           }}
-          onConfirm={(r) => {
+          onConfirm={(box) => {
             try {
               const data = imageToImageData(image);
               setOcc(
-                computeOccupancy(
-                  data,
-                  r.box,
-                  room.day_count,
-                  r.imageStartHour,
-                  r.imageEndHour,
-                  room.start_hour,
-                  room.end_hour
-                )
+                computeOccupancy(data, box, room.day_count, room.start_hour, room.end_hour)
               );
               setImage(null);
               setStage('edit');

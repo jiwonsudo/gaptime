@@ -1,26 +1,20 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { BoundingBox } from '@/types';
-import { DAY_LABELS } from '@/types';
+import { DAY_LABELS, EVERYTIME_IMAGE_END, EVERYTIME_IMAGE_START } from '@/types';
 import { formatHour } from '@/lib/timeFormat';
 import { Button } from './ui/button';
-import { Input } from './ui/input';
-
-export interface CalibrationResult {
-  box: BoundingBox; // 원본 이미지 픽셀 좌표
-  imageStartHour: number;
-  imageEndHour: number;
-}
 
 interface Props {
   image: HTMLImageElement;
   dayCount: number;
   roomStartHour: number;
   roomEndHour: number;
-  onConfirm: (r: CalibrationResult) => void;
+  onConfirm: (box: BoundingBox) => void; // 원본 이미지 픽셀 좌표
   onBack: () => void;
 }
 
 const MAX_W = 520;
+const IMG_ROWS = EVERYTIME_IMAGE_END - EVERYTIME_IMAGE_START; // 10
 type DragMode = { kind: 'tl' | 'br' | 'move'; startX: number; startY: number; box: BoundingBox };
 
 export default function GridCalibrator({
@@ -33,11 +27,6 @@ export default function GridCalibrator({
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  // 에타 스크린샷에 보이는 격자의 시각 범위 (기본 8시 시작)
-  const [imgStart, setImgStart] = useState(8);
-  const [imgEnd, setImgEnd] = useState(() => Math.max(roomEndHour, 22));
-  const imgHours = Math.max(1, imgEnd - imgStart);
 
   const [dispW, setDispW] = useState(() => Math.min(MAX_W, image.width));
   const scale = dispW / image.width;
@@ -117,11 +106,13 @@ export default function GridCalibrator({
     const bh = y1 - y0;
     ctx.save();
 
-    // 방 시간대 밴드 강조
-    const bandTop = y0 + (bh * (roomStartHour - imgStart)) / imgHours;
-    const bandBot = y0 + (bh * (roomEndHour - imgStart)) / imgHours;
-    ctx.fillStyle = 'rgba(63,169,104,0.18)';
-    ctx.fillRect(x0, bandTop, bw, bandBot - bandTop);
+    // 방 시간대 밴드 (08시 기준 오프셋)
+    const from = Math.max(0, roomStartHour - EVERYTIME_IMAGE_START);
+    const to = Math.min(IMG_ROWS, roomEndHour - EVERYTIME_IMAGE_START);
+    if (to > from) {
+      ctx.fillStyle = 'rgba(63,169,104,0.18)';
+      ctx.fillRect(x0, y0 + (bh * from) / IMG_ROWS, bw, (bh * (to - from)) / IMG_ROWS);
+    }
 
     ctx.strokeStyle = '#FF6B4A';
     ctx.lineWidth = 2;
@@ -136,26 +127,22 @@ export default function GridCalibrator({
       ctx.lineTo(x, y1);
       ctx.stroke();
     }
-    for (let h = 1; h < imgHours; h++) {
-      const y = y0 + (bh * h) / imgHours;
+    for (let h = 1; h < IMG_ROWS; h++) {
+      const y = y0 + (bh * h) / IMG_ROWS;
       ctx.beginPath();
       ctx.moveTo(x0, y);
       ctx.lineTo(x1, y);
       ctx.stroke();
     }
     ctx.restore();
-  }, [box, image, dispW, dispH, dayCount, imgStart, imgEnd, imgHours, roomStartHour, roomEndHour]);
+  }, [box, image, dispW, dispH, dayCount, roomStartHour, roomEndHour]);
 
   function confirm() {
     onConfirm({
-      box: {
-        x0: box.x0 / scale,
-        y0: box.y0 / scale,
-        x1: box.x1 / scale,
-        y1: box.y1 / scale,
-      },
-      imageStartHour: imgStart,
-      imageEndHour: imgEnd,
+      x0: box.x0 / scale,
+      y0: box.y0 / scale,
+      x1: box.x1 / scale,
+      y1: box.y1 / scale,
     });
   }
 
@@ -165,34 +152,10 @@ export default function GridCalibrator({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink/60">
-        주황색 두 점을 스크린샷 <b>격자 전체</b>의 좌상단·우하단 모서리에 맞춰주세요. 초록으로
-        칠해진 부분이 이 방의 시간대({formatHour(roomStartHour)}~{formatHour(roomEndHour)})예요.
+        주황색 두 점을 에타 시간표 격자의 <b>맨 위(8시)·맨 아래(18시) 모서리</b>에 맞춰주세요. 에타는
+        항상 8시~18시 10칸이에요. 초록 부분이 이 방의 시간대(
+        {formatHour(roomStartHour)}~{formatHour(roomEndHour)})예요.
       </p>
-
-      <div className="flex items-end gap-2">
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          스크린샷 맨 위 시각
-          <Input
-            type="number"
-            min={6}
-            max={roomStartHour}
-            value={imgStart}
-            className="h-8 w-24"
-            onChange={(e) => setImgStart(Math.min(roomStartHour, Math.max(6, +e.target.value || 8)))}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-xs font-semibold">
-          맨 아래 시각
-          <Input
-            type="number"
-            min={roomEndHour}
-            max={24}
-            value={imgEnd}
-            className="h-8 w-24"
-            onChange={(e) => setImgEnd(Math.max(roomEndHour, Math.min(24, +e.target.value || 22)))}
-          />
-        </label>
-      </div>
 
       <div ref={wrapRef} className="relative w-full select-none" style={{ maxWidth: MAX_W }}>
         <canvas

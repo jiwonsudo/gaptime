@@ -33,4 +33,8 @@ export const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
 export const HOUR_MIN_START = 6;
 export const HOUR_MAX_END = 24;
 export const DEFAULT_START_HOUR = 8;
-export const DEFAULT_END_HOUR = 22;
+export const DEFAULT_END_HOUR = 18;
+
+// 에타 시간표 스크린샷은 항상 08~18시, 1시간 단위 10칸 고정.
+export const EVERYTIME_IMAGE_START = 8;
+export const EVERYTIME_IMAGE_END = 18;
