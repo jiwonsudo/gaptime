@@ -11,6 +11,7 @@ export default function App() {
   function closeTour() {
     markTutorialSeen();
     setTour(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   const openTour = () => setTour(true);
 
