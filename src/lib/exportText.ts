@@ -1,11 +1,11 @@
 import type { CellResult } from './overlap';
 import { DAY_LABELS } from '@/types';
+import { formatRange } from './timeFormat';
 
-// 예: "화 15~17시 (전원 가능), 목 13~18시 (28/30명 가능)"
-// 각 요일별로 "가능 인원 수가 같은 연속 구간"을 묶어 출력한다.
+// 예: "화 15시~17시 전원 가능, 목 13시~18시 30명 중 25명 가능"
 export function buildExportText(
   grid: CellResult[][],
-  denom: number,
+  team: number,
   startHour: number
 ): string {
   const parts: string[] = [];
@@ -18,11 +18,9 @@ export function buildExportText(
       const c = h < hourCount ? grid[d][h].freeCount : -1;
       if (c !== runCount) {
         if (runCount > 0) {
-          const from = startHour + runStart;
-          const to = startHour + h;
-          const label =
-            runCount >= denom ? '전원 가능' : `${runCount}/${denom}명 가능`;
-          parts.push(`${DAY_LABELS[d]} ${from}~${to}시 (${label})`);
+          const range = formatRange(startHour + runStart, startHour + h);
+          const label = runCount >= team ? '전원 가능' : `${team}명 중 ${runCount}명 가능`;
+          parts.push(`${DAY_LABELS[d]} ${range} ${label}`);
         }
         runStart = h;
         runCount = c;
@@ -30,5 +28,5 @@ export function buildExportText(
     }
   }
 
-  return parts.length > 0 ? parts.join(', ') : '겹치는 가능 시간이 없어요.';
+  return parts.length > 0 ? parts.join(', ') : '아직 겹치는 시간이 없어요.';
 }

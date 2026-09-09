@@ -1,11 +1,11 @@
 import type { Occupancy, Submission } from '@/types';
 
 export interface CellResult {
-  freeNames: string[]; // 이 칸이 비어있는(가능한) 사람들
+  freeNames: string[]; // 이 시간에 비어있는 사람들의 표시 이름
   freeCount: number;
 }
 
-// 여러 submission의 occupancy를 셀별 "가능 인원 수 + 이름 목록"으로 결합한다.
+// 여러 제출을 셀별 "비어있는 사람 수 + 이름"으로 합친다.
 export function combineSubmissions(
   submissions: Submission[],
   dayCount: number,
@@ -19,7 +19,7 @@ export function combineSubmissions(
       for (const sub of submissions) {
         const occ: Occupancy = sub.occupancy;
         const occupied = occ?.[d]?.[h] ?? false;
-        if (!occupied) freeNames.push(sub.name);
+        if (!occupied) freeNames.push(sub.display_name);
       }
       row.push({ freeNames, freeCount: freeNames.length });
     }
@@ -28,12 +28,12 @@ export function combineSubmissions(
   return grid;
 }
 
-// 분모: max(expected_size, 실제 제출 인원 수)
-export function denominator(expectedSize: number, submissionCount: number): number {
+// 기준 인원 = max(예상 인원, 실제 제출 인원)
+export function teamSize(expectedSize: number, submissionCount: number): number {
   return Math.max(expectedSize, submissionCount);
 }
 
-// 이름 문자열 해시 → HSL hue (참가자 식별용 장식 점)
+// 이름 해시 → HSL hue. hover 목록에서 이름 옆 작은 점 장식용.
 export function nameToHue(name: string): number {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {

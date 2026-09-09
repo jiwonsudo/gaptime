@@ -1,7 +1,10 @@
 # gaptime (에브리프리타임)
 
 여러 명이 각자 자기 기기에서 에타 시간표 스크린샷을 올리면, 방(room) 링크 하나로
-실시간 취합되어 가능 인원 수 히트맵을 보여주는 웹 서비스. 자세한 배경은 [CLAUDE.md](./CLAUDE.md).
+실시간 취합되어 가능 인원 수 히트맵을 보여주는 웹 서비스.
+
+- 배경/원칙: [CLAUDE.md](./CLAUDE.md)
+- 확정 상세 설계(신원·방장 관리·수동 편집 등): [DESIGN.md](./DESIGN.md)
 
 ## 개발
 
@@ -13,8 +16,10 @@ pnpm dev
 
 ## Supabase 준비
 
-`supabase/schema.sql`을 Supabase SQL Editor에서 실행하면 `rooms` / `submissions`
-테이블과 RLS 정책, Realtime publication이 생성됩니다.
+`supabase/schema.sql`을 Supabase SQL Editor에서 실행하면 테이블(`rooms`, `submissions`,
+`submission_editors`, `room_secrets`), RLS 정책, 관리 RPC, Realtime publication이 만들어집니다.
+스키마를 고치면 SQL Editor에서 다시 실행하세요 (`create ... if not exists` / `create or replace`라
+재실행 안전, 단 컬럼 추가는 수동 `alter table` 필요).
 
 ## 배포
 

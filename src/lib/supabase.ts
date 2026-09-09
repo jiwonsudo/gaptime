@@ -8,35 +8,26 @@ export const isSupabaseConfigured = Boolean(url && anonKey);
 
 export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'public-anon-key');
 
-function shortId(len = 6): string {
-  const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
-  let out = '';
-  for (let i = 0; i < len; i++) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return out;
-}
-
+// ── 방 ────────────────────────────────────────────────────────
 export async function createRoom(input: {
+  title: string;
   dayCount: number;
   startHour: number;
   endHour: number;
   expectedSize: number;
-}): Promise<Room> {
-  const id = shortId();
-  const { data, error } = await supabase
-    .from('rooms')
-    .insert({
-      id,
-      day_count: input.dayCount,
-      start_hour: input.startHour,
-      end_hour: input.endHour,
-      expected_size: input.expectedSize,
-    })
-    .select()
-    .single();
+}): Promise<{ room: Room; ownerToken: string }> {
+  const { data, error } = await supabase.rpc('create_room', {
+    p_title: input.title,
+    p_day_count: input.dayCount,
+    p_start_hour: input.startHour,
+    p_end_hour: input.endHour,
+    p_expected_size: input.expectedSize,
+  });
   if (error) throw error;
-  return data as Room;
+  const row = Array.isArray(data) ? data[0] : data;
+  const room = await getRoom(row.id);
+  if (!room) throw new Error('방 생성 직후 조회에 실패했어요');
+  return { room, ownerToken: row.owner_token as string };
 }
 
 export async function getRoom(id: string): Promise<Room | null> {
@@ -45,35 +36,132 @@ export async function getRoom(id: string): Promise<Room | null> {
   return (data as Room) ?? null;
 }
 
+// ── 제출 ──────────────────────────────────────────────────────
 export async function getSubmissions(roomId: string): Promise<Submission[]> {
   const { data, error } = await supabase
     .from('submissions')
-    .select()
+    .select('id, room_id, display_name, slug, occupancy, created_at')
     .eq('room_id', roomId)
     .order('created_at', { ascending: true });
   if (error) throw error;
   return (data as Submission[]) ?? [];
 }
 
+// 신규 제출/수정. 성공 시 새 editor_token 반환.
 export async function submitOccupancy(input: {
   roomId: string;
-  name: string;
+  displayName: string;
+  slug: string;
   occupancy: Occupancy;
-}): Promise<void> {
-  const { error } = await supabase.from('submissions').insert({
-    room_id: input.roomId,
-    name: input.name,
-    occupancy: input.occupancy,
+  editorToken?: string | null;
+  pin?: string | null; // 다른 기기 수정 시 확인용
+  setPin?: string | null; // 이번에 새로 설정할 PIN
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('submit_occupancy', {
+    p_room_id: input.roomId,
+    p_display_name: input.displayName,
+    p_slug: input.slug,
+    p_occupancy: input.occupancy,
+    p_editor_token: input.editorToken ?? null,
+    p_pin: input.pin ?? null,
+    p_set_pin: input.setPin ?? null,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function claimEditor(
+  roomId: string,
+  slug: string,
+  pin: string | null
+): Promise<string> {
+  const { data, error } = await supabase.rpc('claim_editor', {
+    p_room_id: roomId,
+    p_slug: slug,
+    p_pin: pin,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function editorHasPin(roomId: string, slug: string): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc('editor_has_pin', {
+    p_room_id: roomId,
+    p_slug: slug,
+  });
+  if (error) throw error;
+  return data as boolean | null;
+}
+
+export async function deleteOwnSubmission(
+  roomId: string,
+  slug: string,
+  editorToken: string
+): Promise<void> {
+  const { error } = await supabase.rpc('delete_own_submission', {
+    p_room_id: roomId,
+    p_slug: slug,
+    p_editor_token: editorToken,
   });
   if (error) throw error;
 }
 
-export function subscribeSubmissions(roomId: string, onChange: () => void) {
+// ── 방장 관리 ─────────────────────────────────────────────────
+export async function verifyOwner(roomId: string, ownerToken: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('verify_owner', {
+    p_room_id: roomId,
+    p_owner_token: ownerToken,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function updateRoomAsOwner(input: {
+  roomId: string;
+  ownerToken: string;
+  expectedSize?: number;
+  locked?: boolean;
+}): Promise<void> {
+  const { error } = await supabase.rpc('update_room_as_owner', {
+    p_room_id: input.roomId,
+    p_owner_token: input.ownerToken,
+    p_expected_size: input.expectedSize ?? null,
+    p_locked: input.locked ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function deleteSubmissionAsOwner(
+  submissionId: string,
+  ownerToken: string
+): Promise<void> {
+  const { error } = await supabase.rpc('delete_submission_as_owner', {
+    p_submission_id: submissionId,
+    p_owner_token: ownerToken,
+  });
+  if (error) throw error;
+}
+
+export async function deleteRoomAsOwner(roomId: string, ownerToken: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_room_as_owner', {
+    p_room_id: roomId,
+    p_owner_token: ownerToken,
+  });
+  if (error) throw error;
+}
+
+// ── Realtime ──────────────────────────────────────────────────
+export function subscribeRoom(roomId: string, onChange: () => void) {
   const channel = supabase
     .channel(`room:${roomId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'submissions', filter: `room_id=eq.${roomId}` },
+      () => onChange()
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
       () => onChange()
     )
     .subscribe();

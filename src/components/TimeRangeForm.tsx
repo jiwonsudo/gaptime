@@ -1,6 +1,7 @@
 import { Input } from './ui/input';
 
 export interface RoomSettings {
+  title: string;
   dayCount: number;
   startHour: number;
   endHour: number;
@@ -12,7 +13,7 @@ interface Props {
   onChange: (v: RoomSettings) => void;
 }
 
-// MVP: 요일 수는 5(월~금) 고정. 시작/종료 시각 + 예상 인원수만 조절.
+// MVP: 요일 수는 5(월~금) 고정. 방 이름 + 시작/종료 시각 + 예상 인원수 조절.
 export default function TimeRangeForm({ value, onChange }: Props) {
   function set<K extends keyof RoomSettings>(key: K, v: RoomSettings[K]) {
     onChange({ ...value, [key]: v });
@@ -21,20 +22,29 @@ export default function TimeRangeForm({ value, onChange }: Props) {
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm font-semibold">
-        시작 시각
+        방 이름
         <Input
-          type="number"
-          min={0}
-          max={22}
-          value={value.startHour}
-          onChange={(e) => set('startHour', clamp(+e.target.value, 0, value.endHour - 1))}
+          placeholder="예: 알고리즘 스터디 시간 조율"
+          maxLength={60}
+          value={value.title}
+          onChange={(e) => set('title', e.target.value)}
         />
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold">
-        종료 시각
+        시작 시각 <span className="font-normal text-ink/40">(에타 기본 8시)</span>
         <Input
           type="number"
-          min={1}
+          min={6}
+          max={22}
+          value={value.startHour}
+          onChange={(e) => set('startHour', clamp(+e.target.value, 6, value.endHour - 1))}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-sm font-semibold">
+        종료 시각 <span className="font-normal text-ink/40">(24 = 자정)</span>
+        <Input
+          type="number"
+          min={9}
           max={24}
           value={value.endHour}
           onChange={(e) => set('endHour', clamp(+e.target.value, value.startHour + 1, 24))}
