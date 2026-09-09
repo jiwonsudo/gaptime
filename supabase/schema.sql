@@ -42,9 +42,13 @@ create table if not exists submission_editors (
 );
 
 create table if not exists room_secrets (
-  room_id     text primary key references rooms(id) on delete cascade,
-  owner_token text not null
+  room_id       text primary key references rooms(id) on delete cascade,
+  owner_token   text not null,
+  owner_pin_hash text,
+  owner_pin_salt text
 );
+alter table room_secrets add column if not exists owner_pin_hash text;
+alter table room_secrets add column if not exists owner_pin_salt text;
 
 -- ─────────────────────────────────────────────────────────────
 -- RLS: 읽기만, 쓰기는 RPC 전용
@@ -85,17 +89,25 @@ $$;
 -- ─────────────────────────────────────────────────────────────
 -- 방 RPC
 -- ─────────────────────────────────────────────────────────────
+-- 예전 시그니처 정리 (있으면)
+drop function if exists create_room(text,int,int,int,int);
+drop function if exists create_room(int,int,int,int);
+
 create or replace function create_room(
-  p_title text, p_day_count int, p_start_hour int, p_end_hour int, p_expected_size int
+  p_title text, p_day_count int, p_start_hour int, p_end_hour int, p_expected_size int,
+  p_owner_pin text
 ) returns table (id text, owner_token text)
 language plpgsql security definer set search_path = public, extensions as $$
-declare v_id text; v_token text; v_try int := 0;
+declare v_id text; v_token text; v_try int := 0; v_salt text;
 begin
   if p_start_hour < 6 or p_end_hour > 24 or p_start_hour >= p_end_hour then
     raise exception '시간 범위가 올바르지 않습니다 (6시~자정)';
   end if;
   if coalesce(p_expected_size, 4) < 2 or p_expected_size > 30 then
     raise exception '예상 인원수는 2~30명이어야 합니다';
+  end if;
+  if p_owner_pin is not null and p_owner_pin !~ '^\d{4}$' then
+    raise exception 'PIN은 숫자 4자리여야 합니다';
   end if;
 
   loop
@@ -106,14 +118,39 @@ begin
   end loop;
 
   v_token := encode(gen_random_bytes(18), 'hex');
+  v_salt  := encode(gen_random_bytes(8), 'hex');
 
   insert into rooms (id, title, day_count, start_hour, end_hour, expected_size)
     values (v_id, left(coalesce(btrim(p_title), ''), 60),
             coalesce(p_day_count, 5), p_start_hour, p_end_hour, p_expected_size);
-  insert into room_secrets (room_id, owner_token) values (v_id, v_token);
+  insert into room_secrets (room_id, owner_token, owner_pin_hash, owner_pin_salt)
+    values (v_id, v_token,
+            case when p_owner_pin is not null then _hash_pin(p_owner_pin, v_salt) end,
+            v_salt);
 
   return query select v_id, v_token;
 end $$;
+
+-- 방장이 다른 기기에서 PIN으로 관리 권한 되찾기. 반환: 새 owner_token
+create or replace function claim_owner(p_room_id text, p_pin text)
+returns text language plpgsql security definer set search_path = public, extensions as $$
+declare v_sec room_secrets;
+begin
+  select * into v_sec from room_secrets where room_id = p_room_id;
+  if not found then raise exception '없는 방입니다'; end if;
+  if v_sec.owner_pin_hash is null then
+    raise exception '이 방은 방장 PIN이 설정되지 않았어요';
+  end if;
+  if p_pin is null or _hash_pin(p_pin, v_sec.owner_pin_salt) <> v_sec.owner_pin_hash then
+    raise exception 'PIN이 맞지 않습니다';
+  end if;
+  return v_sec.owner_token;  -- 회전하지 않음: 기존 기기도 계속 방장
+end $$;
+
+create or replace function room_has_owner_pin(p_room_id text)
+returns boolean language sql security definer set search_path = public, extensions as $$
+  select owner_pin_hash is not null from room_secrets where room_id = p_room_id
+$$;
 
 -- ─────────────────────────────────────────────────────────────
 -- 제출 RPC
@@ -271,7 +308,9 @@ end $$;
 -- ─────────────────────────────────────────────────────────────
 -- 실행 권한
 -- ─────────────────────────────────────────────────────────────
-grant execute on function create_room(text,int,int,int,int)                     to anon, authenticated;
+grant execute on function create_room(text,int,int,int,int,text)                 to anon, authenticated;
+grant execute on function claim_owner(text,text)                                 to anon, authenticated;
+grant execute on function room_has_owner_pin(text)                               to anon, authenticated;
 grant execute on function submit_occupancy(text,text,text,jsonb,text,text,text)  to anon, authenticated;
 grant execute on function claim_editor(text,text,text)                           to anon, authenticated;
 grant execute on function editor_has_pin(text,text)                              to anon, authenticated;

@@ -7,6 +7,8 @@ import ResultGrid from './ResultGrid';
 import ShareCard from './ShareCard';
 import SubmitFlow from './SubmitFlow';
 import OwnerPanel from './OwnerPanel';
+import OwnerClaim from './OwnerClaim';
+import ParticipantList from './ParticipantList';
 import Coachmark, { type TourStep } from './Coachmark';
 
 interface Props {
@@ -117,14 +119,17 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
       )}
 
       <div className="grid gap-8 md:grid-cols-[1fr_18rem]">
-        <div data-tour="heatmap">
-          <ResultGrid
-            dayCount={room.day_count}
-            startHour={room.start_hour}
-            endHour={room.end_hour}
-            expectedSize={room.expected_size}
-            submissions={submissions}
-          />
+        <div className="flex flex-col gap-4">
+          <div data-tour="heatmap">
+            <ResultGrid
+              dayCount={room.day_count}
+              startHour={room.start_hour}
+              endHour={room.end_hour}
+              expectedSize={room.expected_size}
+              submissions={submissions}
+            />
+          </div>
+          <ParticipantList submissions={submissions} expectedSize={room.expected_size} />
         </div>
 
         <div className="flex flex-col gap-5">
@@ -134,7 +139,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
               hint="링크를 받은 사람은 바로 자기 시간표를 올릴 수 있어요."
             />
           )}
-          {ownerToken && (
+          {ownerToken ? (
             <div data-tour="owner">
               <OwnerPanel
                 room={room}
@@ -143,6 +148,8 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
                 onChanged={refresh}
               />
             </div>
+          ) : (
+            <OwnerClaim roomId={roomId} onClaimed={setOwnerTokenState} />
           )}
           <div data-tour="submit">
             <SubmitFlow

@@ -55,7 +55,7 @@ export default function OccupancyEditor({ value, dayCount, startHour, endHour, o
                   type="button"
                   aria-pressed={busy}
                   className={`h-7 border border-white/70 transition-colors ${
-                    busy ? 'bg-none' : 'bg-free/25'
+                    busy ? 'bg-cta/35' : 'bg-free/25'
                   }`}
                   onPointerDown={(e) => {
                     e.preventDefault();
@@ -77,7 +77,7 @@ export default function OccupancyEditor({ value, dayCount, startHour, endHour, o
           <span className="inline-block h-3 w-3 bg-free/25" /> 빈 시간
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block h-3 w-3 bg-none" /> 수업
+          <span className="inline-block h-3 w-3 bg-cta/35" /> 수업 (안 되는 시간)
         </span>
       </div>
     </div>

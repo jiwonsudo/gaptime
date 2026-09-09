@@ -40,15 +40,26 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
     startHour: DEFAULT_START_HOUR,
     endHour: DEFAULT_END_HOUR,
     expectedSize: 4,
+    ownerPinEnabled: false,
+    ownerPin: '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const pinInvalid = settings.ownerPinEnabled && !/^\d{4}$/.test(settings.ownerPin);
+
   async function handleCreate() {
+    if (pinInvalid) {
+      setError('방장 PIN은 숫자 4자리여야 해요.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const { room, ownerToken } = await createRoom(settings);
+      const { room, ownerToken } = await createRoom({
+        ...settings,
+        ownerPin: settings.ownerPinEnabled ? settings.ownerPin : null,
+      });
       setOwnerToken(room.id, ownerToken);
       navigate(`/r/${room.id}?created=1`);
     } catch (e) {
@@ -102,7 +113,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
             data-tour="create-btn"
             variant="cta"
             size="lg"
-            disabled={busy}
+            disabled={busy || pinInvalid}
             onClick={handleCreate}
           >
             {busy ? '만드는 중' : '방 만들기'}

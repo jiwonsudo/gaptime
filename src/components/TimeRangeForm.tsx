@@ -6,6 +6,8 @@ export interface RoomSettings {
   startHour: number;
   endHour: number;
   expectedSize: number;
+  ownerPinEnabled: boolean;
+  ownerPin: string;
 }
 
 interface Props {
@@ -61,6 +63,24 @@ export default function TimeRangeForm({ value, onChange }: Props) {
           className="accent-free"
         />
       </label>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={value.ownerPinEnabled}
+          onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
+        />
+        방장 PIN 설정 (다른 기기에서 방 관리할 때)
+      </label>
+      {value.ownerPinEnabled && (
+        <Input
+          inputMode="numeric"
+          maxLength={4}
+          placeholder="숫자 4자리"
+          value={value.ownerPin}
+          onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+        />
+      )}
     </div>
   );
 }

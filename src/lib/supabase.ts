@@ -15,6 +15,7 @@ export async function createRoom(input: {
   startHour: number;
   endHour: number;
   expectedSize: number;
+  ownerPin?: string | null;
 }): Promise<{ room: Room; ownerToken: string }> {
   const { data, error } = await supabase.rpc('create_room', {
     p_title: input.title,
@@ -22,6 +23,7 @@ export async function createRoom(input: {
     p_start_hour: input.startHour,
     p_end_hour: input.endHour,
     p_expected_size: input.expectedSize,
+    p_owner_pin: input.ownerPin ?? null,
   });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
@@ -114,6 +116,18 @@ export async function verifyOwner(roomId: string, ownerToken: string): Promise<b
   });
   if (error) throw error;
   return data === true;
+}
+
+export async function roomHasOwnerPin(roomId: string): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc('room_has_owner_pin', { p_room_id: roomId });
+  if (error) throw error;
+  return data as boolean | null;
+}
+
+export async function claimOwner(roomId: string, pin: string): Promise<string> {
+  const { data, error } = await supabase.rpc('claim_owner', { p_room_id: roomId, p_pin: pin });
+  if (error) throw error;
+  return data as string;
 }
 
 export async function updateRoomAsOwner(input: {

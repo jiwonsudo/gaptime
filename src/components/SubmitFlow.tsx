@@ -186,17 +186,25 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
         <GridCalibrator
           image={image}
           dayCount={room.day_count}
-          startHour={room.start_hour}
-          endHour={room.end_hour}
+          roomStartHour={room.start_hour}
+          roomEndHour={room.end_hour}
           onBack={() => {
             setImage(null);
             setStage('upload');
           }}
-          onConfirm={(box) => {
+          onConfirm={(r) => {
             try {
               const data = imageToImageData(image);
               setOcc(
-                computeOccupancy(data, box, room.day_count, room.start_hour, room.end_hour)
+                computeOccupancy(
+                  data,
+                  r.box,
+                  room.day_count,
+                  r.imageStartHour,
+                  r.imageEndHour,
+                  room.start_hour,
+                  room.end_hour
+                )
               );
               setImage(null);
               setStage('edit');

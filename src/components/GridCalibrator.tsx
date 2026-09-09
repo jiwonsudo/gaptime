@@ -1,14 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { BoundingBox } from '@/types';
 import { DAY_LABELS } from '@/types';
+import { formatHour } from '@/lib/timeFormat';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
+
+export interface CalibrationResult {
+  box: BoundingBox; // 원본 이미지 픽셀 좌표
+  imageStartHour: number;
+  imageEndHour: number;
+}
 
 interface Props {
   image: HTMLImageElement;
   dayCount: number;
-  startHour: number;
-  endHour: number;
-  onConfirm: (box: BoundingBox) => void;
+  roomStartHour: number;
+  roomEndHour: number;
+  onConfirm: (r: CalibrationResult) => void;
   onBack: () => void;
 }
 
@@ -18,15 +26,19 @@ type DragMode = { kind: 'tl' | 'br' | 'move'; startX: number; startY: number; bo
 export default function GridCalibrator({
   image,
   dayCount,
-  startHour,
-  endHour,
+  roomStartHour,
+  roomEndHour,
   onConfirm,
   onBack,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // 컨테이너 폭에 맞춘 표시 크기
+  // 에타 스크린샷에 보이는 격자의 시각 범위 (기본 8시 시작)
+  const [imgStart, setImgStart] = useState(8);
+  const [imgEnd, setImgEnd] = useState(() => Math.max(roomEndHour, 22));
+  const imgHours = Math.max(1, imgEnd - imgStart);
+
   const [dispW, setDispW] = useState(() => Math.min(MAX_W, image.width));
   const scale = dispW / image.width;
   const dispH = Math.round(image.height * scale);
@@ -34,28 +46,19 @@ export default function GridCalibrator({
   useLayoutEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const apply = () => {
-      const w = Math.min(MAX_W, image.width, el.clientWidth || MAX_W);
-      setDispW(w);
-    };
+    const apply = () => setDispW(Math.min(MAX_W, image.width, el.clientWidth || MAX_W));
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
   }, [image]);
 
-  // 표시 좌표계 기준 bounding box (초기 추정: 이미지 중앙부)
   const [box, setBox] = useState<BoundingBox>({ x0: 0, y0: 0, x1: 0, y1: 0 });
   const initedFor = useRef(0);
   useEffect(() => {
     if (initedFor.current === dispW) return;
     initedFor.current = dispW;
-    setBox({
-      x0: dispW * 0.12,
-      y0: dispH * 0.14,
-      x1: dispW * 0.96,
-      y1: dispH * 0.94,
-    });
+    setBox({ x0: dispW * 0.12, y0: dispH * 0.14, x1: dispW * 0.96, y1: dispH * 0.94 });
   }, [dispW, dispH]);
 
   const geom = useRef({ dispW, dispH });
@@ -66,7 +69,6 @@ export default function GridCalibrator({
       e.preventDefault();
       e.stopPropagation();
       const d: DragMode = { kind, startX: e.clientX, startY: e.clientY, box };
-
       const onMove = (ev: PointerEvent) => {
         ev.preventDefault();
         const { dispW: W, dispH: H } = geom.current;
@@ -103,7 +105,6 @@ export default function GridCalibrator({
     };
   }
 
-  // 캔버스: 이미지 + 격자 미리보기
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || dispW === 0) return;
@@ -112,37 +113,49 @@ export default function GridCalibrator({
     ctx.drawImage(image, 0, 0, dispW, dispH);
 
     const { x0, y0, x1, y1 } = box;
+    const bw = x1 - x0;
+    const bh = y1 - y0;
     ctx.save();
+
+    // 방 시간대 밴드 강조
+    const bandTop = y0 + (bh * (roomStartHour - imgStart)) / imgHours;
+    const bandBot = y0 + (bh * (roomEndHour - imgStart)) / imgHours;
+    ctx.fillStyle = 'rgba(63,169,104,0.18)';
+    ctx.fillRect(x0, bandTop, bw, bandBot - bandTop);
+
     ctx.strokeStyle = '#FF6B4A';
     ctx.lineWidth = 2;
-    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.strokeRect(x0, y0, bw, bh);
 
-    ctx.strokeStyle = 'rgba(63,169,104,0.65)';
+    ctx.strokeStyle = 'rgba(28,35,29,0.35)';
     ctx.lineWidth = 1;
-    const hourCount = Math.max(1, endHour - startHour);
     for (let d = 1; d < dayCount; d++) {
-      const x = x0 + ((x1 - x0) * d) / dayCount;
+      const x = x0 + (bw * d) / dayCount;
       ctx.beginPath();
       ctx.moveTo(x, y0);
       ctx.lineTo(x, y1);
       ctx.stroke();
     }
-    for (let h = 1; h < hourCount; h++) {
-      const y = y0 + ((y1 - y0) * h) / hourCount;
+    for (let h = 1; h < imgHours; h++) {
+      const y = y0 + (bh * h) / imgHours;
       ctx.beginPath();
       ctx.moveTo(x0, y);
       ctx.lineTo(x1, y);
       ctx.stroke();
     }
     ctx.restore();
-  }, [box, image, dispW, dispH, dayCount, startHour, endHour]);
+  }, [box, image, dispW, dispH, dayCount, imgStart, imgEnd, imgHours, roomStartHour, roomEndHour]);
 
   function confirm() {
     onConfirm({
-      x0: box.x0 / scale,
-      y0: box.y0 / scale,
-      x1: box.x1 / scale,
-      y1: box.y1 / scale,
+      box: {
+        x0: box.x0 / scale,
+        y0: box.y0 / scale,
+        x1: box.x1 / scale,
+        y1: box.y1 / scale,
+      },
+      imageStartHour: imgStart,
+      imageEndHour: imgEnd,
     });
   }
 
@@ -152,9 +165,34 @@ export default function GridCalibrator({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink/60">
-        주황색 두 점을 드래그해서 시간표 격자의 <b>좌상단·우하단 모서리</b>에 맞춰주세요. 격자 안쪽을
-        끌면 전체가 함께 움직입니다. ({DAY_LABELS.slice(0, dayCount).join('')} · {startHour}시~{endHour}시)
+        주황색 두 점을 스크린샷 <b>격자 전체</b>의 좌상단·우하단 모서리에 맞춰주세요. 초록으로
+        칠해진 부분이 이 방의 시간대({formatHour(roomStartHour)}~{formatHour(roomEndHour)})예요.
       </p>
+
+      <div className="flex items-end gap-2">
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          스크린샷 맨 위 시각
+          <Input
+            type="number"
+            min={6}
+            max={roomStartHour}
+            value={imgStart}
+            className="h-8 w-24"
+            onChange={(e) => setImgStart(Math.min(roomStartHour, Math.max(6, +e.target.value || 8)))}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs font-semibold">
+          맨 아래 시각
+          <Input
+            type="number"
+            min={roomEndHour}
+            max={24}
+            value={imgEnd}
+            className="h-8 w-24"
+            onChange={(e) => setImgEnd(Math.max(roomEndHour, Math.min(24, +e.target.value || 22)))}
+          />
+        </label>
+      </div>
 
       <div ref={wrapRef} className="relative w-full select-none" style={{ maxWidth: MAX_W }}>
         <canvas
@@ -163,7 +201,6 @@ export default function GridCalibrator({
           height={dispH}
           className="block w-full rounded-md border border-ink/15"
         />
-        {/* 격자 안쪽: 전체 이동 */}
         <div
           className="absolute touch-none"
           style={{
@@ -178,6 +215,8 @@ export default function GridCalibrator({
         <div className={handle} style={{ left: box.x0, top: box.y0 }} onPointerDown={startDrag('tl')} />
         <div className={handle} style={{ left: box.x1, top: box.y1 }} onPointerDown={startDrag('br')} />
       </div>
+
+      <div className="text-xs text-ink/40">{DAY_LABELS.slice(0, dayCount).join(' ')}</div>
 
       <div className="flex gap-2">
         <Button variant="outline" onClick={onBack}>

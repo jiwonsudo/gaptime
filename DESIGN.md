@@ -36,8 +36,8 @@ localStorage 식별자는 기기를 바꾸면 잃어버리므로 쓰지 않는�
 - **다른 기기**: 방 페이지에서 "이미 올렸어요 · 수정" → 닉네임 입력
   - PIN 설정됨 → PIN 입력해 검증 → `editor_token` 재발급받아 수정
   - PIN 미설정 → 닉네임만으로 수정 허용(안내: "PIN을 설정하지 않아 닉네임만으로 열립니다")
-- **개인 링크 / QR**: `/r/<roomId>/<slug>` + QR 을 "나에게 보내기"용으로 제공.
-  폰으로 QR 스캔이 가장 쉬운 크로스 기기 경로.
+- **개인 링크 / QR**: `/r/<roomId>/<slug>` 링크를 "나에게 보내기"용으로 제공.
+  링크 복사가 1순위, QR은 "QR 코드" 버튼을 눌러야 나오고 이미지 저장 가능.
 - PIN·editor_token 모두 없고 링크도 잃음 → 방장이 제출 삭제 후 재제출.
 
 PIN은 `pin_hash`(salt+sha256)로만 저장, 원문·해시 모두 클라이언트로 안 나감.
@@ -62,7 +62,14 @@ PIN은 `pin_hash`(salt+sha256)로만 저장, 원문·해시 모두 클라이언�
 ### 격자 맞추기(캘리브레이터)
 - 이미지를 컨테이너 폭에 맞춰 표시, 그 위에 DOM 핸들 2개(좌상단·우하단).
 - 핸들 드래그 = 모서리 이동, 격자 안쪽 드래그 = 전체 이동.
-- 격자선 미리보기(요일 수 × 시간 수)를 실시간 오버레이.
+- 사용자는 **스크린샷에 보이는 격자 전체**를 감싼다. "맨 위 시각 / 맨 아래 시각"을
+  숫자로 입력(기본 8시 시작). 에타는 항상 8시부터 렌더되므로, 방이 12시 시작이면
+  `computeOccupancy` 가 앞 4시간 행을 버리고 방 시간대만 잘라낸다.
+- 미리보기에 방 시간대 밴드를 초록으로 강조.
+
+### 수동 격자 편집기 색
+- 빈 시간 = 초록(`#3FA968` 계열), **수업(안 되는 시간) = 빨강(`#FF6B4A` 계열)**.
+  결과 히트맵의 초록 스케일과 헷갈리지 않도록 편집기에서만 빨강을 쓴다.
 
 ### 채도 판별 (CLAUDE.md 유지)
 - RGB→HSV의 saturation만 사용. 셀 안쪽 60%에서 5×5 샘플 평균.
@@ -75,6 +82,8 @@ PIN은 `pin_hash`(salt+sha256)로만 저장, 원문·해시 모두 클라이언�
 - 칸 안에 `가능한 사람 수 / 전체` 숫자 항상 표기. **"분모" 같은 용어 안 씀** — hover 툴팁은 "N명 중 X명이 이 시간에 비어요"처럼 자연스러운 문장.
 - 전체 = `max(예상 인원, 실제 제출 인원)`.
 - hover 시 가능한 사람 이름 목록(상위 8명 + "외 N명", 스크롤).
+- 히트맵 아래에 **올린 사람 목록**(닉네임 + 색점)을 항상 노출 — 방장·멤버 모두 누가
+  냈고 누가 안 냈는지 본다. `제출 수 / max(예상 인원, 제출 수)` 표기.
 - 새 제출이 실시간으로 들어오면 해당 칸 색이 트랜지션으로 바뀜(다른 등장 애니메이션 없음).
 - 내보내기: "화 15\~17시 전원 가능, 목 13\~18시 28명 중 25명 가능" 같은 문장. 화살표·전각 대시·올캡 금지.
 
@@ -90,6 +99,9 @@ PIN은 `pin_hash`(salt+sha256)로만 저장, 원문·해시 모두 클라이언�
   - 개별 제출 삭제 (장난·중복·오감지)
   - 방 삭제
 - **요일/시간 범위는 방장도 수정 불가** — 기존 제출들의 occupancy가 그 격자 기준이라 깨짐.
+- **방장 PIN (선택)**: 방 생성 시 4자리 PIN을 걸면, 다른 기기에서 방 링크 열고
+  "방장이신가요?" → PIN 입력 → `claim_owner` RPC 가 owner_token 을 내려줘서 관리 권한 획득.
+  토큰은 회전하지 않아 원래 만든 기기도 계속 방장. PIN 미설정 시 만든 기기에서만 관리.
 
 ## 6. 첫 방문 튜토리얼 (코치마크)
 
@@ -119,13 +131,14 @@ submission_editors(              -- 클라이언트 접근 불가
   editor_token text, pin_hash text null, pin_salt text null
 )
 room_secrets(                    -- 클라이언트 접근 불가
-  room_id text pk, owner_token text
+  room_id text pk, owner_token text, owner_pin_hash text null, owner_pin_salt text null
 )
 ```
 
 RPC (전부 `security definer`, anon 실행 허용):
-`create_room`, `submit_occupancy`, `delete_own_submission`, `verify_owner`,
-`delete_submission_as_owner`, `update_room_as_owner`, `delete_room_as_owner`.
+`create_room`, `claim_owner`, `room_has_owner_pin`, `submit_occupancy`, `claim_editor`,
+`editor_has_pin`, `delete_own_submission`, `verify_owner`, `delete_submission_as_owner`,
+`update_room_as_owner`, `delete_room_as_owner`.
 
 RLS: `rooms`/`submissions`는 select만 허용(방은 만료 전). `submission_editors`/`room_secrets`는
 정책 없음(RPC 전용). insert/update/delete 권한은 anon에서 revoke.
