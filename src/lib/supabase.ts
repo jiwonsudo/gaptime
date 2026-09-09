@@ -4,7 +4,10 @@ import type { Occupancy, Room, Submission } from '@/types';
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const isSupabaseConfigured = Boolean(url && anonKey);
+if (import.meta.env.DEV && !(url && anonKey)) {
+  // 개발자용 콘솔 경고 (사용자 화면에는 노출하지 않음)
+  console.warn('[everyFreeTime] Supabase env not set: VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
+}
 
 export const supabase = createClient(url ?? 'http://localhost', anonKey ?? 'public-anon-key');
 

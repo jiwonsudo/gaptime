@@ -11,7 +11,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Modal } from './ui/modal';
 import { Shake, useShake } from './ui/shake';
-import { createRoom, isSupabaseConfigured } from '@/lib/supabase';
+import { createRoom } from '@/lib/supabase';
 import { setOwnerToken } from '@/lib/roomAuth';
 
 interface Props {
@@ -112,8 +112,8 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
           </div>
         </div>
         <p className="mb-8 text-sm text-ink/60">
-          방을 만들고 링크를 공유하면, 팀원들이 각자 자기 기기에서 에타 시간표를 올려 모두의 빈
-          시간을 실시간으로 찾아줍니다. 로그인 없어요.
+          방을 만들고 링크를 공유하면, 팀원들이 각자 에타 시간표를 올려 모두의 빈
+          시간을 실시간으로 찾아줍니다. 로그인이 필요없는 서비스입니다.
         </p>
 
         <div className="grid gap-6 md:grid-cols-[1fr_16rem]">
@@ -132,11 +132,6 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
             <h2 className="text-sm font-extrabold">방 설정</h2>
             <TimeRangeForm value={settings} onChange={setSettings} />
             <p className="text-xs text-ink/40">이 방은 만든 지 14일이 지나면 자동으로 사라져요.</p>
-            {!isSupabaseConfigured && (
-              <p className="text-xs text-cta">
-                Supabase 환경변수가 설정되지 않았어요 (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY).
-              </p>
-            )}
             {error && <p className="text-xs text-cta">{error}</p>}
             <Shake shakeKey={shakeKey}>
               <Button
