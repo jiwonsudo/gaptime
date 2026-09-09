@@ -194,9 +194,9 @@ begin
     raise exception '시간 단위는 30분 또는 60분이어야 합니다';
   end if;
 
-  -- 방 생성 남용 방지: IP당 시간당 20개, 전체 시간당 200개
+  -- 방 생성 남용 방지: IP당 시간당 20개, 전체 시간당 150개
   perform _bump_throttle('ip:' || _client_ip(), 20, interval '1 hour');
-  perform _bump_throttle('global', 200, interval '1 hour');
+  perform _bump_throttle('global', 150, interval '1 hour');
 
   -- room id = 접근 자격이므로 추측 불가하게 8 hex (32비트)
   loop
@@ -305,6 +305,14 @@ begin
   end if;
 
   select * into v_ed from submission_editors where room_id = p_room_id and slug = p_slug;
+
+  -- 신규 제출 남용 방지: 방당 제출 수 상한 40, IP당 시간당 60
+  if not found then
+    if (select count(*) from submissions where room_id = p_room_id) >= 40 then
+      raise exception '이 방은 제출이 가득 찼어요';
+    end if;
+    perform _bump_throttle('sub:' || _client_ip(), 60, interval '1 hour');
+  end if;
 
   if found then
     -- 수정 권한 확인

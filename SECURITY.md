@@ -45,12 +45,13 @@ everyFreeTime은 **계정이 없다.** 접근 통제는 세 가지 비밀값으�
   덮어쓸 수 있다. When2meet 과 같은 모델 — 방 링크가 곧 신뢰 경계이고, 방장이 잠금·삭제로
   대응한다. 보호를 원하면 제출 시 PIN 을 건다.
 - **방 생성 스팸 / 서버 비용**: `create_room` 에 3중 방어가 있다.
-  1. **글로벌 상한** `_bump_throttle('global', 200, 1h)` — 전체에서 시간당 200개 초과 거부.
-     스팸 최악의 경우도 (200/h × 24 × 7일 만료 × ~1.5KB) ≈ 50MB 로 캡.
-  2. **IP당 상한** `_bump_throttle('ip:'||_client_ip(), 20, 1h)` — best-effort
-     (`cf-connecting-ip` / `x-real-ip` / `x-forwarded-for` 순). 헤더 위조로 우회 가능하나
-     허들은 됨.
-  3. **자동 정리** `_gaptime_purge()` (pg_cron, 매시 17분) — 만료 방 + 2시간 지난 throttle 행 삭제. steady-state 크기 바운드.
+  1. **방 생성 상한**: 전체 시간당 150개(`_bump_throttle('global', 150, 1h)`), IP당 20개.
+  2. **제출 상한**: 방당 최대 40개, IP당 시간당 60개.
+  3. **7일 만료 + 매시 purge** (`_gaptime_purge`, pg_cron 매시 17분).
+  → 지속 공격 최악의 경우도 **(150방/h × 168h × 40제출 × ~800B) ≈ 800MB** 로 바운드.
+     정상 사용은 수 MB. 2GB 안에서 안전.
+  - IP 판정은 best-effort (`cf-connecting-ip` / `x-real-ip` / `x-forwarded-for` 순).
+    헤더 위조로 IP 상한은 우회 가능하나 방/제출 상한과 전체 상한은 못 뚫는다.
   강한 방어가 필요하면 **Cloudflare Turnstile**(무료 CAPTCHA)를 방 생성 폼에 붙이고
   토큰을 `create_room` 에서 `pg_net` 으로 siteverify 하거나, Cloudflare 무료 플랜의
   Rate Limiting Rule 1개를 `/rest/v1/rpc/create_room` 에 건다.
