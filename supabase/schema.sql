@@ -284,8 +284,9 @@ begin
   delete from submissions where id = p_submission_id;
 end $$;
 
+drop function if exists update_room_as_owner(text,text,int,boolean);
 create or replace function update_room_as_owner(
-  p_room_id text, p_owner_token text, p_expected_size int, p_locked boolean
+  p_room_id text, p_owner_token text, p_expected_size int, p_locked boolean, p_title text
 ) returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not verify_owner(p_room_id, p_owner_token) then raise exception '권한이 없습니다'; end if;
@@ -294,7 +295,8 @@ begin
   end if;
   update rooms set
     expected_size = coalesce(p_expected_size, expected_size),
-    locked        = coalesce(p_locked, locked)
+    locked        = coalesce(p_locked, locked),
+    title         = coalesce(left(btrim(p_title), 60), title)
   where id = p_room_id;
 end $$;
 
@@ -317,7 +319,7 @@ grant execute on function editor_has_pin(text,text)                             
 grant execute on function delete_own_submission(text,text,text)                  to anon, authenticated;
 grant execute on function verify_owner(text,text)                                to anon, authenticated;
 grant execute on function delete_submission_as_owner(uuid,text)                  to anon, authenticated;
-grant execute on function update_room_as_owner(text,text,int,boolean)            to anon, authenticated;
+grant execute on function update_room_as_owner(text,text,int,boolean,text)       to anon, authenticated;
 grant execute on function delete_room_as_owner(text,text)                        to anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────

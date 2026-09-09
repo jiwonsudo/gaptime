@@ -8,6 +8,8 @@ import {
 } from '@/lib/supabase';
 import { clearOwnerToken } from '@/lib/roomAuth';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Checkbox } from './ui/checkbox';
 
 interface Props {
   room: Room;
@@ -46,19 +48,30 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
 
       {open && (
         <div className="mt-3 flex flex-col gap-4 text-sm">
-          <label className="flex items-center justify-between">
-            제출 마감
-            <input
-              type="checkbox"
-              checked={room.locked}
+          <label className="flex flex-col gap-1 font-semibold">
+            방 이름
+            <Input
+              defaultValue={room.title}
+              maxLength={60}
               disabled={busy}
-              onChange={(e) =>
-                run(() =>
-                  updateRoomAsOwner({ roomId: room.id, ownerToken, locked: e.target.checked })
-                )
-              }
+              onBlur={(e) => {
+                const t = e.target.value.trim();
+                if (t && t !== room.title)
+                  run(() => updateRoomAsOwner({ roomId: room.id, ownerToken, title: t }));
+              }}
             />
           </label>
+
+          <Checkbox
+            label="제출 마감 (더 이상 시간표를 받지 않음)"
+            checked={room.locked}
+            disabled={busy}
+            onChange={(e) =>
+              run(() =>
+                updateRoomAsOwner({ roomId: room.id, ownerToken, locked: e.target.checked })
+              )
+            }
+          />
 
           <label className="flex items-center justify-between gap-2">
             예상 인원수

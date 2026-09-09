@@ -10,6 +10,7 @@ import OwnerPanel from './OwnerPanel';
 import OwnerClaim from './OwnerClaim';
 import ParticipantList from './ParticipantList';
 import Logo from './Logo';
+import AdBanner from './AdBanner';
 import Coachmark, { type TourStep } from './Coachmark';
 
 interface Props {
@@ -18,26 +19,46 @@ interface Props {
   onCloseTour: () => void;
 }
 
-const STEPS: TourStep[] = [
+// 방을 만든 사람(방장) 기준 안내
+const OWNER_STEPS: TourStep[] = [
   {
     selector: '[data-tour="share"]',
-    title: '이 링크를 공유하세요',
-    body: '“참여 링크”를 누르면 링크와 QR이 나와요. 단톡방에 뿌리면 받은 사람은 바로 자기 시간표를 올립니다.',
-  },
-  {
-    selector: '[data-tour="heatmap"]',
-    title: '결과는 실시간 히트맵',
-    body: '진한 초록일수록 많은 사람이 비는 시간. 칸에 마우스를 올리면 누가 가능한지 이름이 나와요.',
+    title: '이 링크를 팀에 뿌리세요',
+    body: '“참여 링크”를 누르면 링크와 QR이 나와요. 단톡방에 붙여넣으면 각자 자기 폰에서 시간표를 올립니다.',
   },
   {
     selector: '[data-tour="submit"]',
-    title: '여기서 내 시간표를 올려요',
-    body: '이름을 넣고 에타 스크린샷을 올린 뒤, 격자를 맞추고 틀린 칸을 손으로 고쳐 제출하면 끝. 다른 기기에서 고치려면 이름과 PIN을 쓰세요.',
+    title: '방장도 시간표를 올려요',
+    body: '방장 본인 시간표도 여기서 이름 넣고 올려야 결과에 반영돼요.',
+  },
+  {
+    selector: '[data-tour="heatmap"]',
+    title: '결과는 실시간으로 채워져요',
+    body: '누가 올릴 때마다 즉시 갱신. 진한 초록일수록 많은 사람이 비는 시간이에요.',
   },
   {
     selector: '[data-tour="owner"]',
-    title: '방장 전용',
-    body: '이 방을 만든 브라우저에만 보여요. 제출을 마감하거나, 장난친 제출을 지우거나, 방을 삭제할 수 있어요.',
+    title: '방장 관리',
+    body: '방 이름·예상 인원 수정, 제출 마감, 장난 제출 삭제, 방 삭제. 다른 기기에서 쓰려면 방장 PIN이 필요해요.',
+  },
+];
+
+// 링크 타고 들어온 멤버 기준 안내
+const MEMBER_STEPS: TourStep[] = [
+  {
+    selector: '[data-tour="submit"]',
+    title: '내 시간표를 올려요',
+    body: '이름(닉네임)을 정하고 에타 시간표 스크린샷을 올린 뒤, 격자를 맞추고 틀린 칸을 손으로 고쳐 제출하면 끝. 이름은 이 방 사람들에게 보여요.',
+  },
+  {
+    selector: '[data-tour="heatmap"]',
+    title: '모두의 결과',
+    body: '진한 초록일수록 많은 사람이 비는 시간. 칸에 올리면 누가 가능한지 이름이 나와요. 실시간으로 갱신돼요.',
+  },
+  {
+    selector: '[data-tour="submit"]',
+    title: '나중에 고칠 수 있어요',
+    body: '같은 기기면 자동으로, 다른 기기면 이름(+PIN)으로 다시 열어서 수정하거나 삭제할 수 있어요.',
   },
 ];
 
@@ -115,8 +136,8 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
 
       {justCreated && (
         <p className="mb-4 rounded-md bg-free/10 px-3 py-2 text-sm text-ink/70">
-          방이 만들어졌어요. 아래 링크나 QR을 단톡방에 공유하세요. 이 브라우저가 방장으로
-          기억됩니다.
+          방이 만들어졌어요. 링크를 단톡방에 공유하고, 방장 본인 시간표도 아래에서
+          올려주세요. 이 브라우저가 방장으로 기억됩니다.
         </p>
       )}
 
@@ -164,7 +185,12 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
         </div>
       </div>
 
-      <Coachmark steps={STEPS} run={tour} onClose={onCloseTour} />
+      <AdBanner />
+      <Coachmark
+        steps={justCreated || ownerToken ? OWNER_STEPS : MEMBER_STEPS}
+        run={tour}
+        onClose={onCloseTour}
+      />
     </div>
   );
 }

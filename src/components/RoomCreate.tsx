@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DAY_LABELS, DEFAULT_END_HOUR, DEFAULT_START_HOUR } from '@/types';
+import { DEFAULT_END_HOUR, DEFAULT_START_HOUR } from '@/types';
 import TimeRangeForm, { type RoomSettings } from './TimeRangeForm';
 import ResultGrid from './ResultGrid';
 import Logo from './Logo';
+import AdBanner from './AdBanner';
 import Coachmark, { type TourStep } from './Coachmark';
 import { Button } from './ui/button';
 import { createRoom, isSupabaseConfigured } from '@/lib/supabase';
@@ -37,13 +38,14 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<RoomSettings>({
     title: '',
-    dayCount: 5,
+    includeWeekend: false,
     startHour: DEFAULT_START_HOUR,
     endHour: DEFAULT_END_HOUR,
     expectedSize: 4,
     ownerPinEnabled: false,
     ownerPin: '',
   });
+  const dayCount = settings.includeWeekend ? 7 : 5;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +60,11 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
     setError(null);
     try {
       const { room, ownerToken } = await createRoom({
-        ...settings,
+        title: settings.title,
+        dayCount,
+        startHour: settings.startHour,
+        endHour: settings.endHour,
+        expectedSize: settings.expectedSize,
         ownerPin: settings.ownerPinEnabled ? settings.ownerPin : null,
       });
       setOwnerToken(room.id, ownerToken);
@@ -85,15 +91,8 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
 
       <div className="grid gap-6 md:grid-cols-[1fr_16rem]">
         <div data-tour="grid-preview">
-          <div className="mb-2 flex gap-1 text-sm font-bold text-ink/50">
-            {DAY_LABELS.slice(0, settings.dayCount).map((d) => (
-              <span key={d} className="flex-1 text-center">
-                {d}
-              </span>
-            ))}
-          </div>
           <ResultGrid
-            dayCount={settings.dayCount}
+            dayCount={dayCount}
             startHour={settings.startHour}
             endHour={settings.endHour}
             expectedSize={settings.expectedSize}
@@ -122,6 +121,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
         </div>
       </div>
 
+      <AdBanner />
       <Coachmark steps={STEPS} run={tour} onClose={onCloseTour} />
     </div>
   );

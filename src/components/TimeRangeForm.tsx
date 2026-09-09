@@ -1,8 +1,9 @@
 import { Input } from './ui/input';
+import { Checkbox } from './ui/checkbox';
 
 export interface RoomSettings {
   title: string;
-  dayCount: number;
+  includeWeekend: boolean;
   startHour: number;
   endHour: number;
   expectedSize: number;
@@ -15,7 +16,6 @@ interface Props {
   onChange: (v: RoomSettings) => void;
 }
 
-// MVP: 요일 수는 5(월~금) 고정. 방 이름 + 시작/종료 시각 + 예상 인원수 조절.
 export default function TimeRangeForm({ value, onChange }: Props) {
   function set<K extends keyof RoomSettings>(key: K, v: RoomSettings[K]) {
     onChange({ ...value, [key]: v });
@@ -32,6 +32,13 @@ export default function TimeRangeForm({ value, onChange }: Props) {
           onChange={(e) => set('title', e.target.value)}
         />
       </label>
+
+      <Checkbox
+        label="토·일 포함"
+        checked={value.includeWeekend}
+        onChange={(e) => set('includeWeekend', e.target.checked)}
+      />
+
       <label className="flex flex-col gap-1 text-sm font-semibold">
         시작 시각 <span className="font-normal text-ink/40">(에타 기본 8시)</span>
         <Input
@@ -52,6 +59,7 @@ export default function TimeRangeForm({ value, onChange }: Props) {
           onChange={(e) => set('endHour', clamp(+e.target.value, value.startHour + 1, 24))}
         />
       </label>
+
       <label className="flex flex-col gap-1 text-sm font-semibold">
         예상 인원수 <span className="tnum font-normal text-ink/50">{value.expectedSize}명</span>
         <input
@@ -64,14 +72,11 @@ export default function TimeRangeForm({ value, onChange }: Props) {
         />
       </label>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={value.ownerPinEnabled}
-          onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
-        />
-        방장 PIN 설정 (다른 기기에서 방 관리할 때)
-      </label>
+      <Checkbox
+        label="방장 PIN 설정 (다른 기기에서 방 관리할 때)"
+        checked={value.ownerPinEnabled}
+        onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
+      />
       {value.ownerPinEnabled && (
         <Input
           inputMode="numeric"
