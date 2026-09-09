@@ -1,12 +1,14 @@
 -- 개발 중 스키마를 갈아엎을 때만 사용. 모든 방/제출 데이터가 사라진다.
 -- 이 파일을 먼저 실행한 뒤 schema.sql 을 실행하세요.
 
--- pg_cron 잡 정리 (있으면)
+-- pg_cron 잡 정리 (설치돼 있을 때만)
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron')
-     and exists (select 1 from cron.job where jobname = 'gaptime-purge') then
-    perform cron.unschedule('gaptime-purge');
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    begin
+      perform cron.unschedule('gaptime-purge');
+    exception when others then null;  -- 잡이 없으면 무시
+    end;
   end if;
 end $$;
 

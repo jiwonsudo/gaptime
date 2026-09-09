@@ -546,9 +546,10 @@ $$;
 do $$
 begin
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
-    if exists (select 1 from cron.job where jobname = 'gaptime-purge') then
+    begin
       perform cron.unschedule('gaptime-purge');
-    end if;
+    exception when others then null;  -- 기존 잡 없으면 무시
+    end;
     perform cron.schedule('gaptime-purge', '17 * * * *', 'select _gaptime_purge()');
   else
     raise notice 'pg_cron 미설치 — 자동 정리 스킵. Extensions 에서 활성화 후 이 파일 재실행.';
