@@ -13,6 +13,7 @@ interface Props {
   expectedSize: number;
   submissions: Submission[];
   preview?: boolean; // 방 생성 화면 미리보기 — 안내 문구 숨김
+  focus?: { name: string; onClear: () => void } | null; // 한 사람 시간표만 보기
 }
 
 const MAX_HOVER_NAMES = 8;
@@ -24,6 +25,7 @@ export default function ResultGrid({
   expectedSize,
   submissions,
   preview = false,
+  focus = null,
 }: Props) {
   const hourCount = Math.max(1, endHour - startHour);
   const grid = useMemo(
@@ -57,6 +59,20 @@ export default function ResultGrid({
 
   return (
     <div className="flex flex-col gap-3">
+      {focus && (
+        <div className="flex items-center justify-between rounded-md bg-ink px-3 py-1.5 text-sm text-paper">
+          <span>
+            <b>{focus.name}</b>님 시간표만 보는 중
+          </span>
+          <button
+            onClick={focus.onClear}
+            aria-label="전체 시간표로 돌아가기"
+            className="rounded px-1.5 text-base leading-none hover:bg-white/15"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <div className="grid" style={{ gridTemplateColumns: `3rem repeat(${dayCount}, 1fr)` }}>
         <div />
         {DAY_LABELS.slice(0, dayCount).map((d) => (
@@ -80,7 +96,11 @@ export default function ResultGrid({
                   onMouseEnter={() => setHover({ d, h })}
                   onMouseLeave={() => setHover(null)}
                 >
-                  {hasData && <span className="tnum text-ink/70">{cell.freeCount}/{team}</span>}
+                  {hasData && !focus && (
+                    <span className="tnum text-ink/70">
+                      {cell.freeCount}/{team}
+                    </span>
+                  )}
                   {active && hasData && (
                     <div className="absolute left-1/2 top-full z-10 mt-1 w-48 -translate-x-1/2 rounded-md border border-ink/15 bg-white p-2 text-left text-xs shadow-lg">
                       <div className="mb-1 font-bold">
@@ -124,7 +144,7 @@ export default function ResultGrid({
         preview ? null : (
           <p className="text-sm text-ink/50">아직 아무도 시간표를 올리지 않았어요.</p>
         )
-      ) : (
+      ) : focus ? null : (
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="outline" onClick={copyExport}>
             {copied ? '복사됐어요' : '문자로 복사하기'}

@@ -14,6 +14,7 @@ import { Shake, useShake } from './ui/shake';
 import { createRoom } from '@/lib/supabase';
 import { setOwnerToken } from '@/lib/roomAuth';
 import { errMessage } from '@/lib/errors';
+import { checkNickname } from '@/lib/nickname';
 
 interface Props {
   tour: boolean;
@@ -64,12 +65,17 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
   const { shakeKey, shake } = useShake();
 
   const titleEmpty = settings.title.trim() === '';
-  const hostEmpty = settings.hostName.trim() === '';
+  const hostCheck = checkNickname(settings.hostName);
   const pinInvalid = settings.ownerPinEnabled && !/^\d{4}$/.test(settings.ownerPin);
 
   async function handleCreate() {
-    if (titleEmpty || hostEmpty) {
-      setError(titleEmpty ? '방 이름을 입력해주세요.' : '내 이름을 입력해주세요.');
+    if (titleEmpty) {
+      setError('방 이름을 입력해주세요.');
+      shake();
+      return;
+    }
+    if (!hostCheck.ok) {
+      setError(settings.hostName.trim() === '' ? '내 이름을 입력해주세요.' : hostCheck.error!);
       shake();
       return;
     }
@@ -82,7 +88,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
     try {
       const { room, ownerToken } = await createRoom({
         title: settings.title.trim(),
-        hostName: settings.hostName.trim(),
+        hostName: hostCheck.displayName,
         dayCount,
         startHour: settings.startHour,
         endHour: settings.endHour,

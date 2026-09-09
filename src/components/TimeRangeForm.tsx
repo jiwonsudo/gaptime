@@ -51,13 +51,16 @@ export default function TimeRangeForm({ value, onChange }: Props) {
       </label>
 
       <label className="flex flex-col gap-1 text-sm font-semibold">
-        내 이름 <span className="font-normal text-ink/40">(방장, 공유 메시지에 들어가요)</span>
+        내 이름 <span className="font-normal text-ink/40">(방장)</span>
         <Input
           placeholder="예: 지원"
           maxLength={20}
           value={value.hostName}
           onChange={(e) => set('hostName', e.target.value)}
         />
+        <span className="text-xs font-normal text-ink/40">
+          공유 메시지에 들어가고, 방장이 시간표 올릴 때도 이 이름을 써요.
+        </span>
       </label>
 
       <Checkbox

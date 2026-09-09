@@ -29,12 +29,19 @@ interface Props {
   room: Room;
   submissions: Submission[];
   editTarget?: { slug: string; token: string | null } | null;
+  presetNickname?: string | null; // 방장: 이름을 다시 묻지 않음
   onChanged: () => void;
 }
 
 type Stage = 'menu' | 'nickname' | 'source' | 'upload' | 'calibrate' | 'edit' | 'reclaim' | 'done';
 
-export default function SubmitFlow({ room, submissions, editTarget, onChanged }: Props) {
+export default function SubmitFlow({
+  room,
+  submissions,
+  editTarget,
+  presetNickname,
+  onChanged,
+}: Props) {
   const hourCount = roomHourCount(room);
   const takenSlugs = useMemo(() => submissions.map((s) => s.slug), [submissions]);
 
@@ -78,6 +85,19 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
     setDisplayName('');
     setSlug('');
     setOcc(emptyOccupancy(room.day_count, hourCount));
+  }
+
+  // "내 시간표 올리기" — 방장은 이름을 이미 알므로 닉네임 단계를 건너뛴다
+  function startNew() {
+    const preset = presetNickname ? checkNickname(presetNickname) : null;
+    if (preset?.ok) {
+      setDisplayName(preset.displayName);
+      setSlug(preset.slug);
+      setSetPin(null);
+      setStage('source');
+    } else {
+      setStage('nickname');
+    }
   }
 
   async function doSubmit() {
@@ -127,7 +147,7 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
 
       {stage === 'menu' && (
         <div className="flex flex-col gap-2">
-          <Button variant="cta" onClick={() => setStage('nickname')}>
+          <Button variant="cta" onClick={startNew}>
             내 시간표 올리기
           </Button>
           <Button variant="outline" size="sm" onClick={() => setStage('reclaim')}>

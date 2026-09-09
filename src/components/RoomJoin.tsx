@@ -32,7 +32,7 @@ const OWNER_STEPS: TourStep[] = [
   {
     selector: '[data-tour="submit"]',
     title: '방장도 시간표를 올려요',
-    body: '방장 본인 시간표도 여기서 닉네임 넣고 올려야 결과에 반영돼요.',
+    body: '방장 본인 시간표도 여기서 올려야 결과에 반영돼요. 이름은 방 만들 때 넣은 걸 그대로 써요.',
   },
   {
     selector: '[data-tour="heatmap"]',
@@ -75,6 +75,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [ownerToken, setOwnerTokenState] = useState<string | null>(null);
+  const [focusSlug, setFocusSlug] = useState<string | null>(null);
 
   const refresh = useCallback(() => {
     if (!roomId) return;
@@ -111,6 +112,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
     [slug, editToken]
   );
 
+  const focusSub = focusSlug ? submissions.find((s) => s.slug === focusSlug) ?? null : null;
   const shareUrl = `${window.location.origin}/room/${roomId}`;
 
   if (loadErr) {
@@ -154,11 +156,21 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
               dayCount={room.day_count}
               startHour={room.start_hour}
               endHour={room.end_hour}
-              expectedSize={room.expected_size}
-              submissions={submissions}
+              expectedSize={focusSub ? 1 : room.expected_size}
+              submissions={focusSub ? [focusSub] : submissions}
+              focus={
+                focusSub
+                  ? { name: focusSub.display_name, onClear: () => setFocusSlug(null) }
+                  : null
+              }
             />
           </div>
-          <ParticipantList submissions={submissions} expectedSize={room.expected_size} />
+          <ParticipantList
+            submissions={submissions}
+            expectedSize={room.expected_size}
+            selectedSlug={focusSlug}
+            onSelect={(s) => setFocusSlug((cur) => (cur === s ? null : s))}
+          />
         </div>
 
         <div className="flex flex-col gap-5">
@@ -189,6 +201,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
               room={room}
               submissions={submissions}
               editTarget={editTarget}
+              presetNickname={ownerToken ? room.host_name : null}
               onChanged={refresh}
             />
           </div>
