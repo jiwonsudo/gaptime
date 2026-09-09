@@ -274,6 +274,7 @@ declare
   v_sub_id uuid;
   v_token  text;
   v_salt   text;
+  v_is_edit boolean;
 begin
   select * into v_room from rooms where id = p_room_id;
   if not found then raise exception '존재하지 않는 방입니다'; end if;
@@ -305,16 +306,17 @@ begin
   end if;
 
   select * into v_ed from submission_editors where room_id = p_room_id and slug = p_slug;
+  v_is_edit := found;  -- 아래 PERFORM 이 FOUND 를 덮어쓰므로 지금 확정
 
   -- 신규 제출 남용 방지: 방당 제출 수 상한 40, IP당 시간당 60
-  if not found then
+  if not v_is_edit then
     if (select count(*) from submissions where room_id = p_room_id) >= 40 then
       raise exception '이 방은 제출이 가득 찼어요';
     end if;
     perform _bump_throttle('sub:' || _client_ip(), 60, interval '1 hour');
   end if;
 
-  if found then
+  if v_is_edit then
     -- 수정 권한 확인
     if p_editor_token is not null and p_editor_token = v_ed.editor_token then
       null; -- ok
