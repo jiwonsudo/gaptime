@@ -234,7 +234,7 @@ CLAUDE.md에서 스트레치/비목표였지만 배포를 위해 앞당김:
 
 - **OG 카드**(`public/og.png`, 1200×630): 흰 배경 + `everyFreeTime` 워드마크 + 한 줄 설명.
   전 페이지 공통(SPA라 방별 동적 OG는 SSR 필요 → 안 함). `index.html` 에 og:* / twitter 메타.
-  배포 시 `og:url`/`og:image` 를 실제 도메인 절대주소로 교체.
+  `og:url`/`og:image` 는 `https://everyfreetime.cloud` 절대주소.
 - **공유 버튼**(Web Share API): `text` 에 "○○님이 '방이름' 폼을 만들었어요. 에타 시간표
   스크린샷으로 간편하게 일정을 알려주세요." + url. 카톡 등에서 이 문구가 메시지 본문으로 들어감.
 - og.png 는 `public/og.svg` 를 sharp 로 래스터화한 것 (빌드타임 산출물, 커밋함).
