@@ -239,16 +239,16 @@ export default function SubmitFlow({
             onChange={setOcc}
           />
           <div className="flex gap-2">
-            <Button variant="cta" onClick={doSubmit}>
+            <Button variant="cta" className="flex-1" onClick={doSubmit}>
               {editorToken ? '수정 저장' : '제출'}
             </Button>
             {editorToken && (
-              <Button variant="outline" size="sm" onClick={() => setConfirmDel(true)}>
+              <Button variant="outline" onClick={() => setConfirmDel(true)}>
                 삭제
               </Button>
             )}
             {!editorToken && (
-              <Button variant="ghost" size="sm" onClick={() => setStage('source')}>
+              <Button variant="ghost" onClick={() => setStage('source')}>
                 뒤로
               </Button>
             )}
