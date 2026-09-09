@@ -109,13 +109,19 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
   return (
     <>
       <div className="mx-auto max-w-4xl px-5 py-10">
-        <div className="mb-1 flex items-baseline justify-between gap-2">
+        <div className="mb-1 flex items-center justify-between gap-2">
           <Logo className="text-2xl" />
-          <div className="flex shrink-0 gap-3 text-xs text-ink/50">
-            <button className="underline" onClick={() => setHelp(true)}>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              className="rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs font-semibold text-ink/70 transition-colors hover:border-ink/30 hover:bg-white"
+              onClick={() => setHelp(true)}
+            >
               이미 방이 있나요?
             </button>
-            <button className="underline" onClick={onOpenTour}>
+            <button
+              className="rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs font-semibold text-ink/70 transition-colors hover:border-ink/30 hover:bg-white"
+              onClick={onOpenTour}
+            >
               사용법
             </button>
           </div>

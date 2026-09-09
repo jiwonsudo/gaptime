@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { Room, Submission } from '@/types';
 import { getRoom, getSubmissions, subscribeRoom, verifyOwner } from '@/lib/supabase';
 import { getOwnerToken } from '@/lib/roomAuth';
@@ -131,11 +131,22 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   return (
     <>
     <div className="mx-auto max-w-4xl px-5 py-10">
-      <div className="mb-1 flex items-baseline justify-between gap-3">
+      <div className="mb-1 flex items-center justify-between gap-2">
         <Logo className="text-base" />
-        <button className="shrink-0 text-xs text-ink/50 underline" onClick={onOpenTour}>
-          사용법
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            to="/"
+            className="rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs font-semibold text-ink/70 transition-colors hover:border-ink/30 hover:bg-white"
+          >
+            새 방 만들기
+          </Link>
+          <button
+            className="rounded-full border border-ink/15 bg-white/60 px-3 py-1 text-xs font-semibold text-ink/70 transition-colors hover:border-ink/30 hover:bg-white"
+            onClick={onOpenTour}
+          >
+            사용법
+          </button>
+        </div>
       </div>
       <h1 className="text-xl font-extrabold">{room.title || '이름 없는 방'}</h1>
       <p className="mb-6 text-xs text-ink/40">
