@@ -7,6 +7,7 @@ export interface Room {
   day_count: number;
   start_hour: number;
   end_hour: number;
+  slot_minutes: number; // 60 또는 30
   expected_size: number;
   locked: boolean;
   created_at: string;

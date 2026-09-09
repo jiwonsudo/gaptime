@@ -4,6 +4,7 @@ import type { Room, Submission } from '@/types';
 import { getRoom, getSubmissions, subscribeRoom, verifyOwner } from '@/lib/supabase';
 import { getOwnerToken } from '@/lib/roomAuth';
 import { errMessage } from '@/lib/errors';
+import { roomSlotCount } from '@/lib/occupancy';
 import ResultGrid from './ResultGrid';
 import ShareCard from './ShareCard';
 import SubmitFlow from './SubmitFlow';
@@ -155,7 +156,8 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
             <ResultGrid
               dayCount={room.day_count}
               startHour={room.start_hour}
-              endHour={room.end_hour}
+              slotCount={roomSlotCount(room)}
+              slotMinutes={room.slot_minutes}
               expectedSize={focusSub ? 1 : room.expected_size}
               submissions={focusSub ? [focusSub] : submissions}
               focus={

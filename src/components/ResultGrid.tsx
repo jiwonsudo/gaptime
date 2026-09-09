@@ -3,13 +3,14 @@ import type { Submission } from '@/types';
 import { DAY_LABELS } from '@/types';
 import { combineSubmissions, teamSize, nameColor } from '@/lib/overlap';
 import { buildExportText } from '@/lib/exportText';
-import { formatHour } from '@/lib/timeFormat';
+import { formatSlot } from '@/lib/timeFormat';
 import { Button } from './ui/button';
 
 interface Props {
   dayCount: number;
   startHour: number;
-  endHour: number;
+  slotCount: number;
+  slotMinutes: number;
   expectedSize: number;
   submissions: Submission[];
   preview?: boolean; // 방 생성 화면 미리보기 — 안내 문구 숨김
@@ -21,21 +22,24 @@ const MAX_HOVER_NAMES = 8;
 export default function ResultGrid({
   dayCount,
   startHour,
-  endHour,
+  slotCount,
+  slotMinutes,
   expectedSize,
   submissions,
   preview = false,
   focus = null,
 }: Props) {
-  const hourCount = Math.max(1, endHour - startHour);
   const grid = useMemo(
-    () => combineSubmissions(submissions, dayCount, hourCount),
-    [submissions, dayCount, hourCount]
+    () => combineSubmissions(submissions, dayCount, slotCount),
+    [submissions, dayCount, slotCount]
   );
   const team = teamSize(expectedSize, submissions.length);
-  const [hover, setHover] = useState<{ d: number; h: number } | null>(null);
+  const [hover, setHover] = useState<{ d: number; s: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const hasData = submissions.length > 0;
+  const perHour = 60 / slotMinutes;
+  const rowH = slotMinutes === 30 ? 'h-5' : 'h-8';
+  const rowLead = slotMinutes === 30 ? 'leading-5' : 'leading-8';
 
   function shade(freeCount: number): string {
     if (!hasData || freeCount === 0) return '#E4E2DC';
@@ -47,7 +51,7 @@ export default function ResultGrid({
   }
 
   async function copyExport() {
-    const text = buildExportText(grid, team, startHour);
+    const text = buildExportText(grid, team, startHour, slotMinutes);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -62,7 +66,7 @@ export default function ResultGrid({
       {focus && (
         <div className="flex items-center justify-between rounded-md bg-ink px-3 py-1.5 text-sm text-paper">
           <span>
-            <b>{focus.name}</b>님 시간표만 보는 중
+            <b>{focus.name}</b>님 시간표
           </span>
           <button
             onClick={focus.onClear}
@@ -80,23 +84,28 @@ export default function ResultGrid({
             {d}
           </div>
         ))}
-        {Array.from({ length: hourCount }).map((_, h) => (
-          <div key={h} className="contents">
-            <div className="tnum pr-2 text-right text-xs font-bold leading-8 text-ink/60">
-              {formatHour(startHour + h)}
+        {Array.from({ length: slotCount }).map((_, s) => (
+          <div key={s} className="contents">
+            <div
+              className={`tnum pr-2 text-right text-[11px] font-bold text-ink/60 ${rowH} ${rowLead}`}
+            >
+              {s % perHour === 0 ? formatSlot(startHour, s, slotMinutes) : ''}
             </div>
             {Array.from({ length: dayCount }).map((_, d) => {
-              const cell = grid[d][h];
-              const active = hover?.d === d && hover?.h === h;
+              const cell = grid[d][s];
+              const active = hover?.d === d && hover?.s === s;
+              const hourStart = s % perHour === 0;
               return (
                 <div
                   key={d}
-                  className="relative h-8 border border-white/70 text-center text-[11px] font-semibold leading-8 transition-colors"
+                  className={`relative border-x border-white/70 text-center text-[11px] font-semibold transition-colors ${rowH} ${rowLead} ${
+                    hourStart ? 'border-t border-t-white/70' : 'border-t border-t-white/30'
+                  }`}
                   style={{ background: shade(cell.freeCount) }}
-                  onMouseEnter={() => setHover({ d, h })}
+                  onMouseEnter={() => setHover({ d, s })}
                   onMouseLeave={() => setHover(null)}
                 >
-                  {hasData && !focus && (
+                  {hasData && !focus && slotMinutes === 60 && (
                     <span className="tnum text-ink/70">
                       {cell.freeCount}/{team}
                     </span>
@@ -104,9 +113,15 @@ export default function ResultGrid({
                   {active && hasData && (
                     <div className="absolute left-1/2 top-full z-10 mt-1 w-48 -translate-x-1/2 rounded-md border border-ink/15 bg-white p-2 text-left text-xs shadow-lg">
                       <div className="mb-1 font-bold">
-                        {DAY_LABELS[d]} {formatHour(startHour + h)}
+                        {DAY_LABELS[d]} {formatSlot(startHour, s, slotMinutes)}
                       </div>
-                      {cell.freeCount === 0 ? (
+                      {focus ? (
+                        <div className="text-ink/60">
+                          {cell.freeCount > 0
+                            ? `${focus.name}님은 이 시간에 비어요`
+                            : `${focus.name}님은 이 시간에 수업이 있어요`}
+                        </div>
+                      ) : cell.freeCount === 0 ? (
                         <div className="text-ink/50">이 시간엔 다들 수업이 있어요</div>
                       ) : (
                         <>

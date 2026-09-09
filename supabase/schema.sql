@@ -14,11 +14,13 @@ create table if not exists rooms (
   day_count     int  not null default 5,
   start_hour    int  not null,
   end_hour      int  not null,
+  slot_minutes  int  not null default 60,   -- 60(1시간) 또는 30(30분)
   expected_size int  not null default 4,
   locked        boolean not null default false,
   created_at    timestamptz not null default now(),
   expires_at    timestamptz not null default now() + interval '14 days'
 );
+alter table rooms add column if not exists slot_minutes int not null default 60;
 
 create table if not exists submissions (
   id           uuid primary key default gen_random_uuid(),
@@ -123,10 +125,11 @@ $$;
 drop function if exists create_room(text,int,int,int,int);
 drop function if exists create_room(int,int,int,int);
 drop function if exists create_room(text,int,int,int,int,text);
+drop function if exists create_room(text,text,int,int,int,int,text);
 
 create or replace function create_room(
   p_title text, p_host_name text, p_day_count int, p_start_hour int, p_end_hour int,
-  p_expected_size int, p_owner_pin text
+  p_expected_size int, p_owner_pin text, p_slot_minutes int
 ) returns table (id text, owner_token text)
 language plpgsql security definer set search_path = public, extensions as $$
 declare v_id text; v_token text; v_try int := 0; v_salt text;
@@ -143,6 +146,9 @@ begin
   if coalesce(p_day_count, 5) not in (5, 7) then
     raise exception '요일 수는 5 또는 7이어야 합니다';
   end if;
+  if coalesce(p_slot_minutes, 60) not in (30, 60) then
+    raise exception '시간 단위는 30분 또는 60분이어야 합니다';
+  end if;
 
   -- room id = 접근 자격이므로 추측 불가하게 8 hex (32비트)
   loop
@@ -158,9 +164,10 @@ begin
   v_token := encode(gen_random_bytes(18), 'hex');
   v_salt  := encode(gen_random_bytes(8), 'hex');
 
-  insert into rooms (id, title, host_name, day_count, start_hour, end_hour, expected_size)
+  insert into rooms (id, title, host_name, day_count, start_hour, end_hour, slot_minutes, expected_size)
     values (v_id, left(coalesce(btrim(p_title), ''), 60), left(coalesce(btrim(p_host_name), ''), 20),
-            coalesce(p_day_count, 5), p_start_hour, p_end_hour, p_expected_size);
+            coalesce(p_day_count, 5), p_start_hour, p_end_hour,
+            coalesce(p_slot_minutes, 60), p_expected_size);
   insert into room_secrets (room_id, owner_token, owner_pin_hash, owner_pin_salt)
     values (v_id, v_token,
             case when p_owner_pin is not null then _hash_pin(p_owner_pin, v_salt) end,
@@ -239,13 +246,13 @@ begin
   -- occupancy 구조/크기 검증 (저장 남용 방지)
   if jsonb_typeof(p_occupancy) <> 'array'
      or jsonb_array_length(p_occupancy) <> v_room.day_count
-     or pg_column_size(p_occupancy) > 4000 then
+     or pg_column_size(p_occupancy) > 8000 then
     raise exception '시간표 데이터 형식이 올바르지 않습니다';
   end if;
   if exists (
     select 1 from jsonb_array_elements(p_occupancy) e
     where jsonb_typeof(e) <> 'array'
-       or jsonb_array_length(e) <> (v_room.end_hour - v_room.start_hour)
+       or jsonb_array_length(e) <> ((v_room.end_hour - v_room.start_hour) * 60 / v_room.slot_minutes)
   ) then
     raise exception '시간표 데이터 형식이 올바르지 않습니다';
   end if;
@@ -376,10 +383,12 @@ end $$;
 
 drop function if exists update_room_as_owner(text,text,int,boolean);
 drop function if exists update_room_as_owner(text,text,int,boolean,text);
+drop function if exists update_room_as_owner(text,text,int,boolean,text,int);
 create or replace function update_room_as_owner(
   p_room_id text, p_owner_token text, p_expected_size int, p_locked boolean,
-  p_title text, p_day_count int
+  p_title text, p_day_count int, p_slot_minutes int
 ) returns void language plpgsql security definer set search_path = public, extensions as $$
+declare v_has_subs boolean;
 begin
   if not verify_owner(p_room_id, p_owner_token) then raise exception '권한이 없습니다'; end if;
   if p_expected_size is not null and (p_expected_size < 2 or p_expected_size > 30) then
@@ -388,14 +397,27 @@ begin
   if p_day_count is not null and p_day_count not in (5, 7) then
     raise exception '요일 수는 5(월~금) 또는 7(월~일)만 됩니다';
   end if;
+  if p_slot_minutes is not null and p_slot_minutes not in (30, 60) then
+    raise exception '시간 단위는 30분 또는 60분이어야 합니다';
+  end if;
   if p_title is not null and btrim(p_title) = '' then
     raise exception '방 이름은 비울 수 없습니다';
   end if;
+
+  -- 제출이 있으면 격자 모양(요일 수 / 시간 단위)을 바꿀 수 없다 (기존 occupancy 깨짐)
+  if p_day_count is not null or p_slot_minutes is not null then
+    select exists (select 1 from submissions where room_id = p_room_id) into v_has_subs;
+    if v_has_subs then
+      raise exception '이미 올린 시간표가 있어 요일 수·시간 단위는 바꿀 수 없어요';
+    end if;
+  end if;
+
   update rooms set
     expected_size = coalesce(p_expected_size, expected_size),
     locked        = coalesce(p_locked, locked),
     title         = coalesce(left(btrim(p_title), 60), title),
-    day_count     = coalesce(p_day_count, day_count)
+    day_count     = coalesce(p_day_count, day_count),
+    slot_minutes  = coalesce(p_slot_minutes, slot_minutes)
   where id = p_room_id;
 end $$;
 
@@ -409,7 +431,7 @@ end $$;
 -- ─────────────────────────────────────────────────────────────
 -- 실행 권한
 -- ─────────────────────────────────────────────────────────────
-grant execute on function create_room(text,text,int,int,int,int,text)            to anon, authenticated;
+grant execute on function create_room(text,text,int,int,int,int,text,int)        to anon, authenticated;
 grant execute on function claim_owner(text,text)                                 to anon, authenticated;
 grant execute on function room_has_owner_pin(text)                               to anon, authenticated;
 grant execute on function submit_occupancy(text,text,text,jsonb,text,text,text)  to anon, authenticated;
@@ -418,7 +440,7 @@ grant execute on function editor_has_pin(text,text)                             
 grant execute on function delete_own_submission(text,text,text)                  to anon, authenticated;
 grant execute on function verify_owner(text,text)                                to anon, authenticated;
 grant execute on function delete_submission_as_owner(uuid,text)                  to anon, authenticated;
-grant execute on function update_room_as_owner(text,text,int,boolean,text,int)   to anon, authenticated;
+grant execute on function update_room_as_owner(text,text,int,boolean,text,int,int) to anon, authenticated;
 grant execute on function delete_room_as_owner(text,text)                        to anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────

@@ -53,6 +53,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
     includeWeekend: false,
     startHour: DEFAULT_START_HOUR,
     endHour: DEFAULT_END_HOUR,
+    slotMinutes: 60,
     expectedSize: 4,
     ownerPinEnabled: false,
     ownerPin: '',
@@ -92,6 +93,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
         dayCount,
         startHour: settings.startHour,
         endHour: settings.endHour,
+        slotMinutes: settings.slotMinutes,
         expectedSize: settings.expectedSize,
         ownerPin: settings.ownerPinEnabled ? settings.ownerPin : null,
       });
@@ -128,7 +130,11 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
             <ResultGrid
               dayCount={dayCount}
               startHour={settings.startHour}
-              endHour={settings.endHour}
+              slotCount={Math.max(
+                1,
+                ((settings.endHour - settings.startHour) * 60) / settings.slotMinutes
+              )}
+              slotMinutes={settings.slotMinutes}
               expectedSize={settings.expectedSize}
               submissions={[]}
               preview

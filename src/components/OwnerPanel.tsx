@@ -31,20 +31,25 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
   const [locked, setLocked] = useState(room.locked);
   const [size, setSize] = useState(room.expected_size);
   const [weekend, setWeekend] = useState(room.day_count >= 7);
+  const [halfHour, setHalfHour] = useState(room.slot_minutes === 30);
 
   useEffect(() => {
     setTitle(room.title);
     setLocked(room.locked);
     setSize(room.expected_size);
     setWeekend(room.day_count >= 7);
-  }, [room.title, room.locked, room.expected_size, room.day_count]);
+    setHalfHour(room.slot_minutes === 30);
+  }, [room.title, room.locked, room.expected_size, room.day_count, room.slot_minutes]);
 
+  const gridLocked = submissions.length > 0; // 제출 있으면 격자 모양 변경 불가
   const nextDayCount = weekend ? 7 : 5;
+  const nextSlot = halfHour ? 30 : 60;
   const dirty =
     title.trim() !== room.title ||
     locked !== room.locked ||
     size !== room.expected_size ||
-    nextDayCount !== room.day_count;
+    nextDayCount !== room.day_count ||
+    nextSlot !== room.slot_minutes;
   const titleEmpty = title.trim() === '';
 
   const [delSub, setDelSub] = useState<Submission | null>(null);
@@ -75,7 +80,8 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
         title: title.trim(),
         locked,
         expectedSize: size,
-        dayCount: nextDayCount,
+        dayCount: gridLocked ? undefined : nextDayCount,
+        slotMinutes: gridLocked ? undefined : nextSlot,
       })
     );
   }
@@ -97,9 +103,20 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
         <Checkbox
           label="토·일 포함"
           checked={weekend}
-          disabled={busy}
+          disabled={busy || gridLocked}
           onChange={(e) => setWeekend(e.target.checked)}
         />
+        <Checkbox
+          label="30분 단위"
+          checked={halfHour}
+          disabled={busy || gridLocked}
+          onChange={(e) => setHalfHour(e.target.checked)}
+        />
+        {gridLocked && (
+          <p className="-mt-2 text-xs text-ink/40">
+            제출이 있어 요일·시간 단위는 못 바꿔요.
+          </p>
+        )}
 
         <Checkbox
           label="제출 마감 (더 이상 시간표를 추가할 수 없게 돼요.)"

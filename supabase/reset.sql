@@ -7,6 +7,7 @@ drop table if exists submissions cascade;
 drop table if exists rooms cascade;
 drop table if exists usage_events cascade;
 
+drop function if exists create_room(text,text,int,int,int,int,text,int) cascade;
 drop function if exists create_room(text,text,int,int,int,int,text) cascade;
 drop function if exists create_room(text,int,int,int,int,text) cascade;
 drop function if exists create_room(text,int,int,int,int) cascade;
@@ -24,6 +25,7 @@ drop function if exists delete_submission_as_owner(uuid,text) cascade;
 drop function if exists update_room_as_owner(text,text,int,boolean) cascade;
 drop function if exists update_room_as_owner(text,text,int,boolean,text) cascade;
 drop function if exists update_room_as_owner(text,text,int,boolean,text,int) cascade;
+drop function if exists update_room_as_owner(text,text,int,boolean,text,int,int) cascade;
 drop function if exists delete_room_as_owner(text,text) cascade;
 drop function if exists _hash_pin(text,text) cascade;
 drop function if exists _reserved_slug(text) cascade;

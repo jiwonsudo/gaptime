@@ -1,37 +1,46 @@
 import { useRef } from 'react';
 import type { Occupancy } from '@/types';
 import { DAY_LABELS } from '@/types';
-import { formatHour } from '@/lib/timeFormat';
+import { formatSlot } from '@/lib/timeFormat';
 
 interface Props {
-  value: Occupancy; // [day][hour] true=수업
+  value: Occupancy; // [day][slot] true=수업
   dayCount: number;
   startHour: number;
-  endHour: number;
+  slotCount: number;
+  slotMinutes: number;
   onChange: (next: Occupancy) => void;
 }
 
 // When2meet 식: 탭 = 토글, 드래그 = 시작 칸의 반대 상태로 칠하기.
-export default function OccupancyEditor({ value, dayCount, startHour, endHour, onChange }: Props) {
-  const hourCount = Math.max(1, endHour - startHour);
+export default function OccupancyEditor({
+  value,
+  dayCount,
+  startHour,
+  slotCount,
+  slotMinutes,
+  onChange,
+}: Props) {
   const painting = useRef<{ to: boolean } | null>(null);
+  const perHour = 60 / slotMinutes;
+  const rowH = slotMinutes === 30 ? 'h-4' : 'h-7';
 
-  function setCell(d: number, h: number, to: boolean) {
-    if (value[d]?.[h] === to) return;
+  function setCell(d: number, s: number, to: boolean) {
+    if (value[d]?.[s] === to) return;
     const next = value.map((row) => row.slice());
     if (!next[d]) next[d] = [];
-    next[d][h] = to;
+    next[d][s] = to;
     onChange(next);
   }
 
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm text-ink/60">
-        자동 입력을 확인하고, <b>추가로 불가능한 시간</b>을 선택해주세요. 칸을 탭하거나 쓸어서 가능/불가능 여부를 바꿀 수 있어요.
+        자동 입력을 확인하고, <b>추가로 불가능한 시간</b>을 칠해주세요. 탭하거나 쓸어서 바꿔요.
       </p>
       <div
         className="grid touch-none select-none"
-        style={{ gridTemplateColumns: `2.5rem repeat(${dayCount}, 1fr)` }}
+        style={{ gridTemplateColumns: `2.75rem repeat(${dayCount}, 1fr)` }}
         onPointerUp={() => (painting.current = null)}
         onPointerLeave={() => (painting.current = null)}
       >
@@ -41,29 +50,33 @@ export default function OccupancyEditor({ value, dayCount, startHour, endHour, o
             {d}
           </div>
         ))}
-        {Array.from({ length: hourCount }).map((_, h) => (
-          <div key={h} className="contents">
-            <div className="tnum pr-1 text-right text-[11px] font-bold leading-7 text-ink/50">
-              {formatHour(startHour + h)}
+        {Array.from({ length: slotCount }).map((_, s) => (
+          <div key={s} className="contents">
+            <div
+              className={`tnum pr-1 text-right text-[10px] font-bold text-ink/50 ${rowH}`}
+              style={{ lineHeight: slotMinutes === 30 ? '1rem' : '1.75rem' }}
+            >
+              {s % perHour === 0 ? formatSlot(startHour, s, slotMinutes) : ''}
             </div>
             {Array.from({ length: dayCount }).map((_, d) => {
-              const busy = value[d]?.[h] ?? false;
+              const busy = value[d]?.[s] ?? false;
+              const hourStart = s % perHour === 0;
               return (
                 <button
                   key={d}
                   type="button"
                   aria-pressed={busy}
-                  className={`h-7 border border-white/70 transition-colors ${
-                    busy ? 'bg-cta/35' : 'bg-free/25'
-                  }`}
+                  className={`${rowH} border-x border-white/70 transition-colors ${
+                    hourStart ? 'border-t border-t-white/70' : 'border-t border-t-white/30'
+                  } ${busy ? 'bg-cta/35' : 'bg-free/25'}`}
                   onPointerDown={(e) => {
                     e.preventDefault();
                     const to = !busy;
                     painting.current = { to };
-                    setCell(d, h, to);
+                    setCell(d, s, to);
                   }}
                   onPointerEnter={() => {
-                    if (painting.current) setCell(d, h, painting.current.to);
+                    if (painting.current) setCell(d, s, painting.current.to);
                   }}
                 />
               );

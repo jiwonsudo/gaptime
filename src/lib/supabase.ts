@@ -18,6 +18,7 @@ export async function createRoom(input: {
   dayCount: number;
   startHour: number;
   endHour: number;
+  slotMinutes: number;
   expectedSize: number;
   ownerPin?: string | null;
 }): Promise<{ room: Room; ownerToken: string }> {
@@ -27,6 +28,7 @@ export async function createRoom(input: {
     p_day_count: input.dayCount,
     p_start_hour: input.startHour,
     p_end_hour: input.endHour,
+    p_slot_minutes: input.slotMinutes,
     p_expected_size: input.expectedSize,
     p_owner_pin: input.ownerPin ?? null,
   });
@@ -142,6 +144,7 @@ export async function updateRoomAsOwner(input: {
   locked?: boolean;
   title?: string;
   dayCount?: number;
+  slotMinutes?: number;
 }): Promise<void> {
   const { error } = await supabase.rpc('update_room_as_owner', {
     p_room_id: input.roomId,
@@ -150,6 +153,7 @@ export async function updateRoomAsOwner(input: {
     p_locked: input.locked ?? null,
     p_title: input.title ?? null,
     p_day_count: input.dayCount ?? null,
+    p_slot_minutes: input.slotMinutes ?? null,
   });
   if (error) throw error;
 }

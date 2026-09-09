@@ -3,6 +3,7 @@ import { formatHour } from '@/lib/timeFormat';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
 import { Select } from './ui/select';
+import { RadioGroup } from './ui/radio';
 
 export interface RoomSettings {
   title: string;
@@ -10,6 +11,7 @@ export interface RoomSettings {
   includeWeekend: boolean;
   startHour: number;
   endHour: number;
+  slotMinutes: 30 | 60;
   expectedSize: number;
   ownerPinEnabled: boolean;
   ownerPin: string;
@@ -96,6 +98,18 @@ export default function TimeRangeForm({ value, onChange }: Props) {
             ))}
           </Select>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm font-semibold">시간 단위</span>
+        <RadioGroup
+          value={String(value.slotMinutes)}
+          onChange={(v) => set('slotMinutes', v === '30' ? 30 : 60)}
+          options={[
+            { value: '60', label: '1시간' },
+            { value: '30', label: '30분', hint: '더 촘촘하게 시간을 잡을 수 있어요' },
+          ]}
+        />
       </div>
 
       <label className="flex flex-col gap-1 text-sm font-semibold">

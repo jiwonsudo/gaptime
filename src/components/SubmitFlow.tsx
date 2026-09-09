@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Occupancy, Room, Submission } from '@/types';
 import { imageToImageData } from '@/lib/imageData';
 import { computeOccupancy } from '@/lib/gridSampler';
-import { emptyOccupancy, resizeOccupancy, roomHourCount } from '@/lib/occupancy';
+import { emptyOccupancy, resizeOccupancy, roomSlotCount } from '@/lib/occupancy';
 import { errMessage } from '@/lib/errors';
 import {
   claimEditor,
@@ -42,7 +42,7 @@ export default function SubmitFlow({
   presetNickname,
   onChanged,
 }: Props) {
-  const hourCount = roomHourCount(room);
+  const slotCount = roomSlotCount(room);
   const takenSlugs = useMemo(() => submissions.map((s) => s.slug), [submissions]);
 
   const [stage, setStage] = useState<Stage>('menu');
@@ -51,7 +51,7 @@ export default function SubmitFlow({
   const [setPin, setSetPin] = useState<string | null>(null);
   const [editorToken, setEditorToken] = useState<string | null>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [occ, setOcc] = useState<Occupancy>(() => emptyOccupancy(room.day_count, hourCount));
+  const [occ, setOcc] = useState<Occupancy>(() => emptyOccupancy(room.day_count, slotCount));
   const [err, setErr] = useState<string | null>(null);
   const [personalUrl, setPersonalUrl] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
@@ -66,7 +66,7 @@ export default function SubmitFlow({
     if (!sub) return;
     setDisplayName(sub.display_name);
     setSlug(sub.slug);
-    setOcc(resizeOccupancy(sub.occupancy, room.day_count, hourCount));
+    setOcc(resizeOccupancy(sub.occupancy, room.day_count, slotCount));
     if (target.token) {
       setEditorToken(target.token);
       setStage('edit');
@@ -84,7 +84,7 @@ export default function SubmitFlow({
     setSetPin(null);
     setDisplayName('');
     setSlug('');
-    setOcc(emptyOccupancy(room.day_count, hourCount));
+    setOcc(emptyOccupancy(room.day_count, slotCount));
   }
 
   // "내 시간표 올리기" — 방장은 이름을 이미 알므로 닉네임 단계를 건너뛴다
@@ -178,7 +178,7 @@ export default function SubmitFlow({
           <Button
             variant="outline"
             onClick={() => {
-              setOcc(emptyOccupancy(room.day_count, hourCount));
+              setOcc(emptyOccupancy(room.day_count, slotCount));
               setStage('edit');
             }}
           >
@@ -214,11 +214,18 @@ export default function SubmitFlow({
             setImage(null);
             setStage('upload');
           }}
-          onConfirm={(box) => {
+          onConfirm={(r) => {
             try {
               const data = imageToImageData(image);
               setOcc(
-                computeOccupancy(data, box, room.day_count, room.start_hour, room.end_hour)
+                computeOccupancy(data, r.box, {
+                  dayCount: room.day_count,
+                  slotMinutes: room.slot_minutes,
+                  roomStartHour: room.start_hour,
+                  roomEndHour: room.end_hour,
+                  imageStartHour: r.imageStartHour,
+                  imageEndHour: r.imageEndHour,
+                })
               );
               setImage(null);
               setStage('edit');
@@ -235,7 +242,8 @@ export default function SubmitFlow({
             value={occ}
             dayCount={room.day_count}
             startHour={room.start_hour}
-            endHour={room.end_hour}
+            slotCount={slotCount}
+            slotMinutes={room.slot_minutes}
             onChange={setOcc}
           />
           <div className="flex gap-2">
@@ -266,8 +274,8 @@ export default function SubmitFlow({
             setSlug(s);
             setDisplayName(sub?.display_name ?? s);
             setOcc(
-              sub ? resizeOccupancy(sub.occupancy, room.day_count, hourCount)
-                  : emptyOccupancy(room.day_count, hourCount)
+              sub ? resizeOccupancy(sub.occupancy, room.day_count, slotCount)
+                  : emptyOccupancy(room.day_count, slotCount)
             );
             setEditorToken(token);
             setLocalEditor(room.id, { slug: s, token });
