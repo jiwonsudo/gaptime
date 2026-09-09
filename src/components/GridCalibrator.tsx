@@ -127,15 +127,19 @@ export default function GridCalibrator({
     const from = Math.max(0, roomStartHour - imgStart);
     const to = Math.min(imgRows, roomEndHour - imgStart);
     if (to > from) {
-      ctx.fillStyle = 'rgba(63,169,104,0.18)';
-      ctx.fillRect(x0, y0 + (bh * from) / imgRows, bw, (bh * (to - from)) / imgRows);
+      const by = y0 + (bh * from) / imgRows;
+      const bhBand = (bh * (to - from)) / imgRows;
+      ctx.fillStyle = 'rgba(63,169,104,0.22)';
+      ctx.fillRect(x0, by, bw, bhBand);
+      ctx.strokeStyle = '#3FA968';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0, by, bw, bhBand);
     }
 
-    ctx.strokeStyle = '#FF6B4A';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x0, y0, bw, bh);
-
-    ctx.strokeStyle = 'rgba(28,35,29,0.35)';
+    // 내부 격자선: difference 합성으로 어떤 배경(다크모드 포함)에서도 반전색으로 보이게
+    ctx.save();
+    ctx.globalCompositeOperation = 'difference';
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.lineWidth = 1;
     for (let d = 1; d < IMG_COLS; d++) {
       const x = x0 + (bw * d) / IMG_COLS;
@@ -151,6 +155,11 @@ export default function GridCalibrator({
       ctx.lineTo(x1, y);
       ctx.stroke();
     }
+    ctx.restore();
+
+    ctx.strokeStyle = '#FF6B4A';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x0, y0, bw, bh);
     ctx.restore();
   }, [box, image, dispW, dispH, roomStartHour, roomEndHour, imgStart, imgRows]);
 

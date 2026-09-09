@@ -299,7 +299,7 @@ export default function SubmitFlow({
           />
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setStage('edit')}>
-              계속 수정
+              수정 또는 삭제
             </Button>
             <Button variant="ghost" size="sm" onClick={reset}>
               다른 사람 올리기
