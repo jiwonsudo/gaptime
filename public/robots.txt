@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /$
+Allow: /privacy
+Disallow: /room/
+
+Sitemap: https://everyfreetime.cloud/sitemap.xml

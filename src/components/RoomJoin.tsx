@@ -78,6 +78,16 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   const [ownerToken, setOwnerTokenState] = useState<string | null>(null);
   const [focusSlug, setFocusSlug] = useState<string | null>(null);
 
+  // 방 페이지는 비공개(링크=접근권한) — 검색엔진 색인 제외
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="robots"]');
+    const prev = meta?.getAttribute('content') ?? null;
+    meta?.setAttribute('content', 'noindex, nofollow');
+    return () => {
+      if (meta && prev !== null) meta.setAttribute('content', prev);
+    };
+  }, []);
+
   const refresh = useCallback(() => {
     if (!roomId) return;
     getSubmissions(roomId).then(setSubmissions).catch(() => {});
