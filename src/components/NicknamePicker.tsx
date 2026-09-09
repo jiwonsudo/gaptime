@@ -43,7 +43,7 @@ export default function NicknamePicker({ takenSlugs, onConfirm, onCancel }: Prop
         checked={usePin}
         onChange={(e) => setUsePin(e.target.checked)}
       />
-      {usePin && (
+      {usePin ? (
         <Input
           inputMode="numeric"
           autoComplete="off"
@@ -52,6 +52,11 @@ export default function NicknamePicker({ takenSlugs, onConfirm, onCancel }: Prop
           value={pin}
           onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
         />
+      ) : (
+        <p className="rounded-md bg-cta/5 px-2.5 py-2 text-xs leading-relaxed text-cta">
+          PIN을 설정하지 않으면, 이 방에 들어온 누구나 “{check.ok ? check.displayName : '이 이름'}”으로
+          당신의 시간표를 덮어쓰거나 지울 수 있어요. 다른 기기에서 수정하려면 개인 링크도 필요해요.
+        </p>
       )}
 
       <div className="flex gap-2">

@@ -151,7 +151,7 @@ export default function SubmitFlow({
             내 시간표 올리기
           </Button>
           <Button variant="outline" size="sm" onClick={() => setStage('reclaim')}>
-            이미 올렸어요 · 다른 기기에서 수정
+            이미 올린 시간표 수정하기
           </Button>
         </div>
       )}

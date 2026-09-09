@@ -36,7 +36,7 @@ export default function OwnerClaim({ roomId, onClaimed }: Props) {
   if (!open) {
     return (
       <button className="text-xs text-ink/40 underline" onClick={() => setOpen(true)}>
-        방장이신가요? 다른 기기에서 관리
+        방장이신가요?
       </button>
     );
   }
