@@ -6,6 +6,7 @@ import ResultGrid from './ResultGrid';
 import Logo from './Logo';
 import Footer from './Footer';
 import AdBanner from './AdBanner';
+import LandingContent from './LandingContent';
 import Coachmark, { type TourStep } from './Coachmark';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -167,6 +168,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
           </div>
         </div>
 
+        <LandingContent />
         <AdBanner />
         <Coachmark steps={STEPS} run={tour} onClose={onCloseTour} />
 
