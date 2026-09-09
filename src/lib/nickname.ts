@@ -15,7 +15,8 @@ const RESERVED = new Set([
   'me',
   'new',
   'api',
-  'r',
+  'room',
+  'privacy',
 ]);
 
 // 완전하지 않은 기본 블록리스트. 방장이 개별 제출 삭제로 보완.

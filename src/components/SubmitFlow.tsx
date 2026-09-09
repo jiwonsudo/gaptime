@@ -93,7 +93,7 @@ export default function SubmitFlow({ room, submissions, editTarget, onChanged }:
       });
       setEditorToken(token);
       setLocalEditor(room.id, { slug, token });
-      const url = `${window.location.origin}/r/${room.id}/${encodeURIComponent(slug)}`;
+      const url = `${window.location.origin}/room/${room.id}/${encodeURIComponent(slug)}`;
       setPersonalUrl(url);
       setStage('done');
       onChanged();

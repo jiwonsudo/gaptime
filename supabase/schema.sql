@@ -98,7 +98,7 @@ create or replace function _reserved_slug(p_slug text)
 returns boolean language sql immutable as $$
   select lower(p_slug) = any (array[
     'admin','administrator','관리자','운영','운영자','방장','host','owner',
-    'system','null','undefined','me','new','api','r'
+    'system','null','undefined','me','new','api','room','privacy'
   ])
 $$;
 

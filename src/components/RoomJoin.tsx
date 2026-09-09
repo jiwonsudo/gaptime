@@ -110,7 +110,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
     [slug, editToken]
   );
 
-  const shareUrl = `${window.location.origin}/r/${roomId}`;
+  const shareUrl = `${window.location.origin}/room/${roomId}`;
 
   if (loadErr) {
     return (

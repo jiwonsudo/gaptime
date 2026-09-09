@@ -18,11 +18,11 @@ export default function App() {
     <Routes>
       <Route path="/" element={<RoomCreate tour={tour} onOpenTour={openTour} onCloseTour={closeTour} />} />
       <Route
-        path="/r/:roomId"
+        path="/room/:roomId"
         element={<RoomJoin tour={tour} onOpenTour={openTour} onCloseTour={closeTour} />}
       />
       <Route
-        path="/r/:roomId/:slug"
+        path="/room/:roomId/:slug"
         element={<RoomJoin tour={tour} onOpenTour={openTour} onCloseTour={closeTour} />}
       />
       <Route path="/privacy" element={<PrivacyPolicy />} />
