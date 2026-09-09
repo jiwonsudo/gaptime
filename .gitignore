@@ -22,3 +22,6 @@ pnpm-debug.log*
 
 # deploy
 .vercel
+
+# 내부 운영 노트 (에러 카탈로그·RLS 체크 등)
+docs/
