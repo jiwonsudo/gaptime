@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { DAY_LABELS, DEFAULT_END_HOUR, DEFAULT_START_HOUR } from '@/types';
 import TimeRangeForm, { type RoomSettings } from './TimeRangeForm';
 import ResultGrid from './ResultGrid';
+import Logo from './Logo';
 import Coachmark, { type TourStep } from './Coachmark';
 import { Button } from './ui/button';
 import { createRoom, isSupabaseConfigured } from '@/lib/supabase';
@@ -72,7 +73,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
   return (
     <div className="mx-auto max-w-4xl px-5 py-10">
       <div className="mb-1 flex items-baseline justify-between">
-        <h1 className="text-2xl font-extrabold">에브리프리타임</h1>
+        <Logo className="text-2xl" />
         <button className="text-xs text-ink/50 underline" onClick={onOpenTour}>
           사용법
         </button>

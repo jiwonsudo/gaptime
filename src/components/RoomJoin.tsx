@@ -9,6 +9,7 @@ import SubmitFlow from './SubmitFlow';
 import OwnerPanel from './OwnerPanel';
 import OwnerClaim from './OwnerClaim';
 import ParticipantList from './ParticipantList';
+import Logo from './Logo';
 import Coachmark, { type TourStep } from './Coachmark';
 
 interface Props {
@@ -99,7 +100,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   return (
     <div className="mx-auto max-w-4xl px-5 py-10">
       <div className="mb-1 flex items-baseline justify-between gap-3">
-        <h1 className="text-xl font-extrabold">{room.title || '이름 없는 방'}</h1>
+        <Logo className="text-base" />
         <div className="flex shrink-0 gap-3 text-xs text-ink/50">
           <button data-tour="share" className="underline" onClick={() => setShowShare((v) => !v)}>
             {showShare ? '링크 숨기기' : '참여 링크'}
@@ -109,7 +110,8 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
           </button>
         </div>
       </div>
-      <p className="mb-6 text-xs text-ink/40">에브리프리타임 · 방 {roomId}</p>
+      <h1 className="text-xl font-extrabold">{room.title || '이름 없는 방'}</h1>
+      <p className="mb-6 text-xs text-ink/40">방 {roomId}</p>
 
       {justCreated && (
         <p className="mb-4 rounded-md bg-free/10 px-3 py-2 text-sm text-ink/70">
