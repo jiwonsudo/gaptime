@@ -11,7 +11,7 @@ export default function Footer() {
           every<span className="font-bold">Free</span>Time
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>© {YEAR} jiwonsudo</span>
+          <span>© {YEAR} Jiwon Jeong</span>
           <a href={GITHUB} target="_blank" rel="noreferrer" className="underline hover:text-ink/70">
             GitHub
           </a>

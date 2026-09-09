@@ -1,12 +1,22 @@
+import { useNavigate } from 'react-router-dom';
 import Logo from './Logo';
 import Footer from './Footer';
 
 export default function PrivacyPolicy() {
+  const navigate = useNavigate();
   return (
     <>
       <div className="mx-auto max-w-2xl px-5 py-10">
-        <Logo className="text-base" />
-        <h1 className="mb-6 mt-4 text-xl font-extrabold">개인정보처리방침</h1>
+        <div className="mb-4 flex items-center justify-between">
+          <Logo className="text-base" />
+          <button
+            className="text-xs text-ink/50 underline hover:text-ink/80"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}
+          >
+            닫기
+          </button>
+        </div>
+        <h1 className="mb-6 text-xl font-extrabold">개인정보처리방침</h1>
 
         <div className="flex flex-col gap-5 text-sm leading-relaxed text-ink/75">
           <section>
