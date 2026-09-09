@@ -29,7 +29,7 @@ export default function ImageUploader({ onImage }: Props) {
       }}
     >
       <p className="text-sm text-ink/60">
-        에타 시간표 스크린샷을 올려주세요. 이미지는 이 브라우저를 벗어나지 않습니다.
+        에타 시간표 스크린샷을 올려주세요. 이미지는 서버로 전송 또는 서버에 저장되지 않으니 안심하세요.
       </p>
       <input
         ref={inputRef}

@@ -32,14 +32,14 @@ export default function NicknamePicker({ takenSlugs, onConfirm, onCancel }: Prop
         />
       </label>
       {raw.length > 0 && !check.ok && <p className="text-xs text-cta">{check.error}</p>}
-      {taken && <p className="text-xs text-cta">이 방에서 이미 쓰는 이름이에요</p>}
+      {taken && <p className="text-xs text-cta">이 방에서 이미 사용중인 이름이에요</p>}
       {check.ok && !taken && (
-        <p className="text-xs text-ink/50">링크에는 “{check.slug}” 로 들어가요</p>
+        <p className="text-xs text-ink/50">링크에는 “{check.slug}” (으)로 들어가요</p>
       )}
-      <p className="text-xs text-ink/40">이 이름은 방에 참여한 사람들 모두에게 보여요.</p>
+      <p className="text-xs text-ink/40">이 이름은 방에 참여한 사람들 모두에게 보여요. 조심해서 작성해주세요.</p>
 
       <Checkbox
-        label="PIN 4자리 설정 (다른 기기에서 수정할 때 씀)"
+        label="PIN 4자리 설정 (다른 기기에서 수정할 때 사용)"
         checked={usePin}
         onChange={(e) => setUsePin(e.target.checked)}
       />

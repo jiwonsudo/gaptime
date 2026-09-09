@@ -3,9 +3,9 @@
   <text x="600" y="300" text-anchor="middle"
     font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Segoe UI', system-ui, sans-serif"
     font-size="104" fill="#1C231D">
-    <tspan font-weight="400">every</tspan><tspan font-weight="800">Free</tspan><tspan font-weight="400">Time</tspan>
+    <tspan font-weight="400">every</tspan><tspan font-weight="800">Free</tspan><tspan font-weight="400">Time</tspan><tspan font-size="40" dy="-40" fill="#8A928B">™</tspan>
   </text>
-  <text x="600" y="372" text-anchor="middle"
+  <text x="600" y="374" text-anchor="middle"
     font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', 'Segoe UI', system-ui, sans-serif"
     font-size="34" font-weight="400" fill="#5B655C">
     에브리타임 시간표 스크린샷으로 간편하게 가능한 시간을 알려주세요

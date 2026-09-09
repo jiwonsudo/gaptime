@@ -4,7 +4,7 @@ interface Props {
   className?: string;
 }
 
-// everyFreeTime — 프리텐다드, 전체 일반체 / "Free"만 볼드
+// everyFreeTime™ — 프리텐다드, 전체 일반체 / "Free"만 볼드
 export default function Logo({ className = 'text-2xl' }: Props) {
   return (
     <Link
@@ -13,6 +13,7 @@ export default function Logo({ className = 'text-2xl' }: Props) {
       aria-label="everyFreeTime 홈으로"
     >
       every<span className="font-bold">Free</span>Time
+      <sup className="ml-0.5 align-super text-[0.55em] text-ink/50">™</sup>
     </Link>
   );
 }
