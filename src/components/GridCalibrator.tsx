@@ -24,7 +24,7 @@ interface Props {
 const MAX_W = 520;
 const IMG_COLS = EVERYTIME_IMAGE_DAYS; // 5 (월~금)
 type DragMode = { kind: 'tl' | 'br' | 'move'; startX: number; startY: number; box: BoundingBox };
-type Preset = 'a' | 'b' | 'custom';
+type Preset = 'default' | 'custom';
 
 export default function GridCalibrator({
   image,
@@ -37,13 +37,14 @@ export default function GridCalibrator({
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [preset, setPreset] = useState<Preset>(roomEndHour > 18 ? 'b' : 'a');
+  const [preset, setPreset] = useState<Preset>('default');
   const [customStart, setCustomStart] = useState(8);
   const [customEnd, setCustomEnd] = useState(Math.max(roomEndHour, 20));
 
   const imgStart = preset === 'custom' ? customStart : 8;
-  const imgEnd = preset === 'a' ? 18 : preset === 'b' ? 24 : customEnd;
+  const imgEnd = preset === 'custom' ? customEnd : 18;
   const imgRows = Math.max(1, imgEnd - imgStart);
+  const roomIsSubset = roomStartHour > imgStart || roomEndHour < imgEnd;
 
   const [dispW, setDispW] = useState(() => Math.min(MAX_W, image.width));
   const scale = dispW / image.width;
@@ -177,9 +178,8 @@ export default function GridCalibrator({
           value={preset}
           onChange={setPreset}
           options={[
-            { value: 'a', label: '오전 8시 ~ 오후 6시', hint: '모바일 캡처 기본' },
-            { value: 'b', label: '오전 8시 ~ 자정', hint: '저녁까지 수업이 보이는 이미지' },
-            { value: 'custom', label: '직접 맞추기' },
+            { value: 'default', label: '에타 캡처 기본', hint: '오전 8시 ~ 오후 6시' },
+            { value: 'custom', label: '직접 시간 범위 선택' },
           ]}
         />
         {preset === 'custom' && (
@@ -212,8 +212,16 @@ export default function GridCalibrator({
       </div>
 
       <p className="text-sm text-ink/60">
-        주황색 두 점을 시간표 격자의 <b>왼쪽 위</b>·<b>오른쪽 아래</b> 모서리에 맞춰주세요. 초록
-        부분이 이 방에서 볼 시간대예요.
+        주황색 두 점을 시간표 격자의 <b>왼쪽 위</b>·<b>오른쪽 아래</b> 모서리에 맞춰주세요.
+        {roomIsSubset ? (
+          <>
+            {' '}
+            이 방은 {formatHour(roomStartHour)}~{formatHour(roomEndHour)}만 보므로, 격자 전체를
+            맞춰도 <b className="text-free">초록 부분</b>만 결과에 들어가요.
+          </>
+        ) : (
+          <> 초록 부분이 이 방에서 볼 시간대예요.</>
+        )}
         {weekend && ' 토·일 칸은 다음 단계에서 직접 칠하면 돼요.'}
       </p>
 

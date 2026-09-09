@@ -426,11 +426,12 @@ end $$;
 drop function if exists update_room_as_owner(text,text,int,boolean);
 drop function if exists update_room_as_owner(text,text,int,boolean,text);
 drop function if exists update_room_as_owner(text,text,int,boolean,text,int);
+drop function if exists update_room_as_owner(text,text,int,boolean,text,int,int);
 create or replace function update_room_as_owner(
   p_room_id text, p_owner_token text, p_expected_size int, p_locked boolean,
-  p_title text, p_day_count int, p_slot_minutes int
+  p_title text, p_day_count int, p_slot_minutes int, p_start_hour int, p_end_hour int
 ) returns void language plpgsql security definer set search_path = public, extensions as $$
-declare v_has_subs boolean;
+declare v_has_subs boolean; v_grid_change boolean;
 begin
   if not verify_owner(p_room_id, p_owner_token) then raise exception '권한이 없습니다'; end if;
   if p_expected_size is not null and (p_expected_size < 2 or p_expected_size > 30) then
@@ -442,15 +443,23 @@ begin
   if p_slot_minutes is not null and p_slot_minutes not in (30, 60) then
     raise exception '시간 단위는 30분 또는 60분이어야 합니다';
   end if;
+  if p_start_hour is not null and (p_start_hour < 8 or p_start_hour > 22) then
+    raise exception '시작 시각이 올바르지 않습니다';
+  end if;
+  if p_end_hour is not null and (p_end_hour > 24 or p_end_hour < 9) then
+    raise exception '종료 시각이 올바르지 않습니다';
+  end if;
   if p_title is not null and btrim(p_title) = '' then
     raise exception '방 이름은 비울 수 없습니다';
   end if;
 
-  -- 제출이 있으면 격자 모양(요일 수 / 시간 단위)을 바꿀 수 없다 (기존 occupancy 깨짐)
-  if p_day_count is not null or p_slot_minutes is not null then
+  -- 격자 모양(요일 수 / 시간 단위 / 시간 범위)을 바꾸면 기존 occupancy 가 깨진다
+  v_grid_change := p_day_count is not null or p_slot_minutes is not null
+                   or p_start_hour is not null or p_end_hour is not null;
+  if v_grid_change then
     select exists (select 1 from submissions where room_id = p_room_id) into v_has_subs;
     if v_has_subs then
-      raise exception '이미 올린 시간표가 있어 요일 수·시간 단위는 바꿀 수 없어요';
+      raise exception '이미 올린 시간표가 있어 요일·시간 설정은 바꿀 수 없어요';
     end if;
   end if;
 
@@ -459,8 +468,14 @@ begin
     locked        = coalesce(p_locked, locked),
     title         = coalesce(left(btrim(p_title), 60), title),
     day_count     = coalesce(p_day_count, day_count),
-    slot_minutes  = coalesce(p_slot_minutes, slot_minutes)
+    slot_minutes  = coalesce(p_slot_minutes, slot_minutes),
+    start_hour    = coalesce(p_start_hour, start_hour),
+    end_hour      = coalesce(p_end_hour, end_hour)
   where id = p_room_id;
+
+  if (select start_hour >= end_hour from rooms where id = p_room_id) then
+    raise exception '시작 시각이 종료 시각보다 빨라야 합니다';
+  end if;
 end $$;
 
 create or replace function delete_room_as_owner(p_room_id text, p_owner_token text)
@@ -482,7 +497,7 @@ grant execute on function editor_has_pin(text,text)                             
 grant execute on function delete_own_submission(text,text,text)                  to anon, authenticated;
 grant execute on function verify_owner(text,text)                                to anon, authenticated;
 grant execute on function delete_submission_as_owner(uuid,text)                  to anon, authenticated;
-grant execute on function update_room_as_owner(text,text,int,boolean,text,int,int) to anon, authenticated;
+grant execute on function update_room_as_owner(text,text,int,boolean,text,int,int,int,int) to anon, authenticated;
 grant execute on function delete_room_as_owner(text,text)                        to anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────

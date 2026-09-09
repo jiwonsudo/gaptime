@@ -158,6 +158,8 @@ export async function updateRoomAsOwner(input: {
   title?: string;
   dayCount?: number;
   slotMinutes?: number;
+  startHour?: number;
+  endHour?: number;
 }): Promise<void> {
   const { error } = await supabase.rpc('update_room_as_owner', {
     p_room_id: input.roomId,
@@ -167,6 +169,8 @@ export async function updateRoomAsOwner(input: {
     p_title: input.title ?? null,
     p_day_count: input.dayCount ?? null,
     p_slot_minutes: input.slotMinutes ?? null,
+    p_start_hour: input.startHour ?? null,
+    p_end_hour: input.endHour ?? null,
   });
   if (error) throw error;
 }

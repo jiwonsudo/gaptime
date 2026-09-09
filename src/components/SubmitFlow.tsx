@@ -192,6 +192,11 @@ export default function SubmitFlow({
 
       {stage === 'upload' && (
         <>
+          <div className="rounded-md border border-cta/30 bg-cta/5 p-3 text-xs leading-relaxed text-ink/70">
+            <b>잠깐!</b> PC라면 브라우저 캡처 말고, 에타 시간표에서{' '}
+            <b>이미지 저장 → PC용</b>으로 받은 파일을 올려주세요. 캡처 이미지는 인식이 잘 안 돼요.
+            휴대폰은 그냥 스크린샷으로 괜찮아요.
+          </div>
           <ImageUploader
             onImage={(img) => {
               setImage(img);

@@ -8,11 +8,16 @@ import {
 } from '@/lib/supabase';
 import { clearOwnerToken } from '@/lib/roomAuth';
 import { errMessage } from '@/lib/errors';
+import { formatHour } from '@/lib/timeFormat';
+import { HOUR_MAX_END, HOUR_MIN_START } from '@/types';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Select } from './ui/select';
 import { Checkbox } from './ui/checkbox';
 import { Collapsible } from './ui/collapsible';
 import { ConfirmDialog } from './ui/confirm-dialog';
+
+const HOURS = Array.from({ length: HOUR_MAX_END - HOUR_MIN_START + 1 }, (_, i) => HOUR_MIN_START + i);
 
 interface Props {
   room: Room;
@@ -32,6 +37,8 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
   const [size, setSize] = useState(room.expected_size);
   const [weekend, setWeekend] = useState(room.day_count >= 7);
   const [halfHour, setHalfHour] = useState(room.slot_minutes === 30);
+  const [startH, setStartH] = useState(room.start_hour);
+  const [endH, setEndH] = useState(room.end_hour);
 
   useEffect(() => {
     setTitle(room.title);
@@ -39,17 +46,32 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
     setSize(room.expected_size);
     setWeekend(room.day_count >= 7);
     setHalfHour(room.slot_minutes === 30);
-  }, [room.title, room.locked, room.expected_size, room.day_count, room.slot_minutes]);
+    setStartH(room.start_hour);
+    setEndH(room.end_hour);
+  }, [
+    room.title,
+    room.locked,
+    room.expected_size,
+    room.day_count,
+    room.slot_minutes,
+    room.start_hour,
+    room.end_hour,
+  ]);
 
   const gridLocked = submissions.length > 0; // 제출 있으면 격자 모양 변경 불가
   const nextDayCount = weekend ? 7 : 5;
   const nextSlot = halfHour ? 30 : 60;
+  const gridDirty =
+    !gridLocked &&
+    (nextDayCount !== room.day_count ||
+      nextSlot !== room.slot_minutes ||
+      startH !== room.start_hour ||
+      endH !== room.end_hour);
   const dirty =
     title.trim() !== room.title ||
     locked !== room.locked ||
     size !== room.expected_size ||
-    nextDayCount !== room.day_count ||
-    nextSlot !== room.slot_minutes;
+    gridDirty;
   const titleEmpty = title.trim() === '';
 
   const [delSub, setDelSub] = useState<Submission | null>(null);
@@ -80,8 +102,10 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
         title: title.trim(),
         locked,
         expectedSize: size,
-        dayCount: gridLocked ? undefined : nextDayCount,
-        slotMinutes: gridLocked ? undefined : nextSlot,
+        dayCount: gridDirty ? nextDayCount : undefined,
+        slotMinutes: gridDirty ? nextSlot : undefined,
+        startHour: gridDirty ? startH : undefined,
+        endHour: gridDirty ? endH : undefined,
       })
     );
   }
@@ -100,23 +124,71 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
           />
         </label>
 
-        <Checkbox
-          label="토·일 포함"
-          checked={weekend}
-          disabled={busy || gridLocked}
-          onChange={(e) => setWeekend(e.target.checked)}
-        />
-        <Checkbox
-          label="30분 단위"
-          checked={halfHour}
-          disabled={busy || gridLocked}
-          onChange={(e) => setHalfHour(e.target.checked)}
-        />
-        {gridLocked && (
-          <p className="-mt-2 text-xs text-ink/40">
-            제출이 있어 요일·시간 단위는 못 바꿔요.
-          </p>
-        )}
+        <div className={gridLocked ? 'rounded-md bg-ink/5 p-2' : undefined}>
+          {gridLocked && (
+            <p className="mb-2 text-xs font-semibold text-ink/45">
+              🔒 제출이 있어 요일·시간 설정은 잠겼어요
+            </p>
+          )}
+          <div className="flex flex-col gap-2">
+            <Checkbox
+              label="토·일 포함"
+              checked={weekend}
+              disabled={busy || gridLocked}
+              onChange={(e) => setWeekend(e.target.checked)}
+            />
+            <Checkbox
+              label="30분 단위"
+              checked={halfHour}
+              disabled={busy || gridLocked}
+              onChange={(e) => setHalfHour(e.target.checked)}
+            />
+            <div
+              className={`flex items-center gap-2 ${
+                gridLocked ? 'pointer-events-none opacity-50' : ''
+              }`}
+            >
+              <span className={gridLocked ? 'text-sm line-through' : 'text-sm font-semibold'}>
+                볼 시간대
+              </span>
+              <Select
+                aria-label="시작 시각"
+                value={startH}
+                disabled={busy || gridLocked}
+                className="h-8"
+                onChange={(e) => {
+                  const h = Number(e.target.value);
+                  setStartH(h);
+                  setEndH((cur) => Math.max(cur, h + 1));
+                }}
+              >
+                {HOURS.filter((h) => h < HOUR_MAX_END).map((h) => (
+                  <option key={h} value={h}>
+                    {formatHour(h)}
+                  </option>
+                ))}
+              </Select>
+              <span className="text-xs text-ink/40">~</span>
+              <Select
+                aria-label="종료 시각"
+                value={endH}
+                disabled={busy || gridLocked}
+                className="h-8"
+                onChange={(e) => {
+                  const h = Number(e.target.value);
+                  setEndH(h);
+                  setStartH((cur) => Math.min(cur, h - 1));
+                }}
+              >
+                {HOURS.filter((h) => h > HOUR_MIN_START).map((h) => (
+                  <option key={h} value={h}>
+                    {formatHour(h)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+        </div>
 
         <Checkbox
           label="제출 마감 (더 이상 시간표를 추가할 수 없게 돼요.)"

@@ -118,15 +118,15 @@ export default function ResultGrid({
                       {focus ? (
                         <div className="text-ink/60">
                           {cell.freeCount > 0
-                            ? `${focus.name}님은 이 시간에 비어요`
-                            : `${focus.name}님은 이 시간에 수업이 있어요`}
+                            ? `${focus.name}님은 이 시간이 가능해요`
+                            : `${focus.name}님은 이 시간에 일정이 있어요`}
                         </div>
                       ) : cell.freeCount === 0 ? (
-                        <div className="text-ink/50">이 시간엔 다들 수업이 있어요</div>
+                        <div className="text-ink/50">이 시간엔 다들 일정이 있어요</div>
                       ) : (
                         <>
                           <div className="mb-1 text-ink/60">
-                            {team}명 중 {cell.freeCount}명이 비어요
+                            {team}명 중 {cell.freeCount}명이 가능해요
                           </div>
                           <ul className="max-h-40 space-y-0.5 overflow-auto">
                             {cell.freeNames.slice(0, MAX_HOVER_NAMES).map((n) => (
