@@ -70,8 +70,8 @@ revoke all                    on room_secrets       from anon, authenticated;
 -- 내부 헬퍼
 -- ─────────────────────────────────────────────────────────────
 create or replace function _hash_pin(p_pin text, p_salt text)
-returns text language sql immutable as $$
-  select encode(digest(p_salt || ':' || p_pin, 'sha256'), 'hex')
+returns text language sql immutable set search_path = public, extensions as $$
+  select encode(extensions.digest(p_salt || ':' || p_pin, 'sha256'), 'hex')
 $$;
 
 create or replace function _reserved_slug(p_slug text)
@@ -88,7 +88,7 @@ $$;
 create or replace function create_room(
   p_title text, p_day_count int, p_start_hour int, p_end_hour int, p_expected_size int
 ) returns table (id text, owner_token text)
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare v_id text; v_token text; v_try int := 0;
 begin
   if p_start_hour < 6 or p_end_hour > 24 or p_start_hour >= p_end_hour then
@@ -127,7 +127,7 @@ create or replace function submit_occupancy(
   p_room_id text, p_display_name text, p_slug text, p_occupancy jsonb,
   p_editor_token text, p_pin text, p_set_pin text
 ) returns text
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare
   v_room   rooms;
   v_ed     submission_editors;
@@ -195,7 +195,7 @@ end $$;
 
 -- 다른 기기에서 닉네임(+PIN)으로 수정 권한 되찾기. 반환: editor_token 또는 null
 create or replace function claim_editor(p_room_id text, p_slug text, p_pin text)
-returns text language plpgsql security definer set search_path = public as $$
+returns text language plpgsql security definer set search_path = public, extensions as $$
 declare v_ed submission_editors; v_token text;
 begin
   select * into v_ed from submission_editors where room_id = p_room_id and slug = p_slug;
@@ -212,13 +212,13 @@ end $$;
 
 -- 이 닉네임에 PIN이 걸려 있는지 (다른 기기 수정 UI 분기용)
 create or replace function editor_has_pin(p_room_id text, p_slug text)
-returns boolean language sql security definer set search_path = public as $$
+returns boolean language sql security definer set search_path = public, extensions as $$
   select pin_hash is not null from submission_editors
    where room_id = p_room_id and slug = p_slug
 $$;
 
 create or replace function delete_own_submission(p_room_id text, p_slug text, p_editor_token text)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 declare v_ed submission_editors;
 begin
   select * into v_ed from submission_editors where room_id = p_room_id and slug = p_slug;
@@ -233,12 +233,12 @@ end $$;
 -- 방장 RPC
 -- ─────────────────────────────────────────────────────────────
 create or replace function verify_owner(p_room_id text, p_owner_token text)
-returns boolean language sql security definer set search_path = public as $$
+returns boolean language sql security definer set search_path = public, extensions as $$
   select exists (select 1 from room_secrets where room_id = p_room_id and owner_token = p_owner_token)
 $$;
 
 create or replace function delete_submission_as_owner(p_submission_id uuid, p_owner_token text)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 declare v_room text;
 begin
   select room_id into v_room from submissions where id = p_submission_id;
@@ -249,7 +249,7 @@ end $$;
 
 create or replace function update_room_as_owner(
   p_room_id text, p_owner_token text, p_expected_size int, p_locked boolean
-) returns void language plpgsql security definer set search_path = public as $$
+) returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not verify_owner(p_room_id, p_owner_token) then raise exception '권한이 없습니다'; end if;
   if p_expected_size is not null and (p_expected_size < 2 or p_expected_size > 30) then
@@ -262,7 +262,7 @@ begin
 end $$;
 
 create or replace function delete_room_as_owner(p_room_id text, p_owner_token text)
-returns void language plpgsql security definer set search_path = public as $$
+returns void language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not verify_owner(p_room_id, p_owner_token) then raise exception '권한이 없습니다'; end if;
   delete from rooms where id = p_room_id;
