@@ -15,7 +15,7 @@ everyFreeTime은 **계정이 없다.** 접근 통제는 세 가지 비밀값으�
 ## 데이터베이스
 
 - **모든 쓰기는 `security definer` RPC 로만.** `rooms`/`submissions` 는 `SELECT` 만 허용
-  (`rooms` 는 `expires_at > now()` 조건). `submission_editors`/`room_secrets`/`usage_events`
+  (`rooms` 는 `expires_at > now()` 조건). `submission_editors`/`room_secrets`/`usage_daily`
   는 RLS 정책이 없어 anon 이 직접 못 읽고, `INSERT/UPDATE/DELETE` 권한도 revoke.
 - 토큰·PIN 해시는 **클라이언트로 절대 나가지 않는다.** RPC 내부 비교에만 쓰인다.
 - PIN 은 salt + SHA-256. 온라인 무차별 대입은 **5회 실패 시 15분 잠금**
@@ -35,9 +35,9 @@ everyFreeTime은 **계정이 없다.** 접근 통제는 세 가지 비밀값으�
 
 - 에타 시간표 **원본 이미지는 서버로 전송되지 않는다.** 브라우저에서 채도 분석 후 폐기,
   요일×시간 boolean 배열 + 닉네임만 전송.
-- 방과 제출은 생성 14일 뒤 자동 만료(조회 불가). 정리는 `pg_cron` 권장:
+- 방과 제출은 생성 7일 뒤 자동 만료(조회 불가). 정리는 `pg_cron` 권장:
   `select cron.schedule('gaptime-purge','0 4 * * *',$$delete from rooms where expires_at<=now()$$);`
-- `usage_events` 는 개인 식별 정보 없는 집계(방 생성 수, 제출 수)만.
+- `usage_daily` 는 개인 식별 정보 없는 집계(방 생성 수, 제출 수)만.
 
 ## 알려진 한계 (수용됨)
 
@@ -45,13 +45,12 @@ everyFreeTime은 **계정이 없다.** 접근 통제는 세 가지 비밀값으�
   덮어쓸 수 있다. When2meet 과 같은 모델 — 방 링크가 곧 신뢰 경계이고, 방장이 잠금·삭제로
   대응한다. 보호를 원하면 제출 시 PIN 을 건다.
 - **방 생성 스팸 / 서버 비용**: `create_room` 에 3중 방어가 있다.
-  1. **글로벌 상한** `_bump_throttle('global', 500, 1h)` — 전체에서 시간당 500개 초과 거부.
-     DB 증가를 시간당 수백 행으로 강제 캡.
+  1. **글로벌 상한** `_bump_throttle('global', 200, 1h)` — 전체에서 시간당 200개 초과 거부.
+     스팸 최악의 경우도 (200/h × 24 × 7일 만료 × ~1.5KB) ≈ 50MB 로 캡.
   2. **IP당 상한** `_bump_throttle('ip:'||_client_ip(), 20, 1h)` — best-effort
      (`cf-connecting-ip` / `x-real-ip` / `x-forwarded-for` 순). 헤더 위조로 우회 가능하나
      허들은 됨.
-  3. **자동 정리** `_gaptime_purge()` (pg_cron, 매시 17분) — 만료 방 + 90일 지난
-     `usage_events` + 2시간 지난 throttle 행 삭제. steady-state 크기 바운드.
+  3. **자동 정리** `_gaptime_purge()` (pg_cron, 매시 17분) — 만료 방 + 2시간 지난 throttle 행 삭제. steady-state 크기 바운드.
   강한 방어가 필요하면 **Cloudflare Turnstile**(무료 CAPTCHA)를 방 생성 폼에 붙이고
   토큰을 `create_room` 에서 `pg_net` 으로 siteverify 하거나, Cloudflare 무료 플랜의
   Rate Limiting Rule 1개를 `/rest/v1/rpc/create_room` 에 건다.

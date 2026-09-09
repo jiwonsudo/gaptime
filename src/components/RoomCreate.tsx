@@ -144,7 +144,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
           <div className="flex flex-col gap-4" data-tour="room-settings">
             <h2 className="text-sm font-extrabold">방 설정</h2>
             <TimeRangeForm value={settings} onChange={setSettings} />
-            <p className="text-xs text-ink/40">이 방은 만든 지 14일이 지나면 자동으로 사라져요.</p>
+            <p className="text-xs text-ink/40">이 방은 만든 지 7일이 지나면 자동으로 사라져요.</p>
             {error && <p className="text-xs text-cta">{error}</p>}
             <Shake shakeKey={shakeKey}>
               <Button

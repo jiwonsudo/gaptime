@@ -13,7 +13,7 @@
 | 시간 범위 | 시작 8\~23시 / 종료 9\~24시 (드롭다운). 기본 8\~18시 |
 | 시간 단위 | 60분(기본) 또는 30분 (라디오). occupancy 슬롯 수 = (end−start)×60/slot. 방장 관리에서도 변경 가능(제출 없을 때만) |
 | 예상 인원 | 2\~30명, 기본 4명. "우리 팀 몇 명" 기준값으로 쓰임 |
-| 만료 | 생성 후 **14일** (무료). 만료된 방은 조회 불가, (선택) pg_cron으로 정리. 생성 화면에 안내 문구 |
+| 만료 | 생성 후 **7일** (무료). 만료된 방은 조회 불가, (선택) pg_cron으로 정리. 생성 화면에 안내 문구 |
 | 잠금 | 방장이 제출 마감 토글. 잠기면 신규/수정 제출 불가, 히트맵은 계속 조회 가능 |
 
 방 생성 → 8자 hex `room id` 발급(32비트, 추측 불가) → `/(도메인)/room/<roomId>`.
@@ -158,8 +158,8 @@ room_secrets(                    -- 클라이언트 접근 불가
 create_throttle(                 -- 방 생성 남용 카운터. 클라이언트 접근 불가
   bucket text pk, count int, window_start timestamptz
 )
-usage_events(                    -- 클라이언트 접근 불가. 방/제출 삭제돼도 유지. 개인정보 없음
-  id bigint pk, kind text, room_id text, day_count int, expected_size int, weekend bool, at timestamptz
+usage_daily(                    -- 일별 집계만. 하루 몇 행이라 영구 보관. 개인정보 없음
+  day date, kind text, count bigint, primary key(day, kind)
 )
 ```
 
@@ -224,7 +224,7 @@ CLAUDE.md에서 스트레치/비목표였지만 배포를 위해 앞당김:
 - **최하단 광고 배너** (`AdBanner`): `VITE_ADS_ENABLED=1` 일 때만 뜨는 플레이스홀더.
   실제 연결은 Google AdSense(사이트 승인 + 개인정보처리방침 필요 → `/privacy` 마련함)
   또는 쿠팡 파트너스. 방/캘리브레이션 중심부는 안 건드리고 페이지 맨 아래에만.
-- **익명 통계** `usage_events`: 방 생성/제출 시 개인정보 없이 집계 → 대형 방 비중·성장 추이로
+- **익명 통계** `usage_daily`: 방 생성/제출을 일별로 +1 집계(`_tally`). 원본 로그는 안 남김 → 성장 추이로
   결제 도입 여부 판단 근거.
 - **20명 초과 100원 결제**: 미구현. PG 연동 부담 크고 초반 결제 장벽은 확산 방해.
   통계 보고 재검토.

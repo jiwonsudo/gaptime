@@ -18,9 +18,10 @@ create table if not exists rooms (
   expected_size int  not null default 4,
   locked        boolean not null default false,
   created_at    timestamptz not null default now(),
-  expires_at    timestamptz not null default now() + interval '14 days'
+  expires_at    timestamptz not null default now() + interval '7 days'
 );
 alter table rooms add column if not exists slot_minutes int not null default 60;
+alter table rooms alter column expires_at set default now() + interval '7 days';
 
 create table if not exists submissions (
   id           uuid primary key default gen_random_uuid(),
@@ -61,16 +62,14 @@ alter table room_secrets add column if not exists owner_pin_salt text;
 alter table room_secrets add column if not exists pin_fails int not null default 0;
 alter table room_secrets add column if not exists pin_lock_until timestamptz;
 
--- 익명 사용 통계 (방/제출이 삭제돼도 유지). 개인 식별 정보 없음.
-create table if not exists usage_events (
-  id           bigint generated always as identity primary key,
-  kind         text not null,           -- 'room_created' | 'submission'
-  room_id      text,                    -- FK 아님(삭제돼도 남김)
-  day_count    int,
-  expected_size int,
-  weekend      boolean,
-  at           timestamptz not null default now()
+-- 익명 사용 통계 — 일별 집계만 (원본 로그 안 남김). 하루 몇 행이라 영구 보관.
+create table if not exists usage_daily (
+  day   date not null,
+  kind  text not null,               -- 'room_created' | 'submission'
+  count bigint not null default 0,
+  primary key (day, kind)
 );
+drop table if exists usage_events cascade;
 
 alter table rooms add column if not exists host_name text not null default '';
 
@@ -88,7 +87,7 @@ alter table rooms              enable row level security;
 alter table submissions        enable row level security;
 alter table submission_editors enable row level security;
 alter table room_secrets       enable row level security;
-alter table usage_events       enable row level security;
+alter table usage_daily        enable row level security;
 alter table create_throttle    enable row level security;
 
 drop policy if exists "rooms read" on rooms;
@@ -102,7 +101,7 @@ revoke insert, update, delete on rooms              from anon, authenticated;
 revoke insert, update, delete on submissions        from anon, authenticated;
 revoke all                    on submission_editors from anon, authenticated;
 revoke all                    on room_secrets       from anon, authenticated;
-revoke all                    on usage_events       from anon, authenticated;
+revoke all                    on usage_daily        from anon, authenticated;
 revoke all                    on create_throttle    from anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────
@@ -144,6 +143,13 @@ begin
     raise exception '잠시 후 다시 시도해주세요 (방 생성이 너무 많아요)';
   end if;
 end $$;
+
+-- 일별 사용 집계 +1
+create or replace function _tally(p_kind text)
+returns void language sql security definer set search_path = public, pg_catalog as $$
+  insert into usage_daily (day, kind, count) values (current_date, p_kind, 1)
+  on conflict (day, kind) do update set count = usage_daily.count + 1
+$$;
 
 -- PostgREST 가 전달하는 클라이언트 IP (best-effort)
 create or replace function _client_ip()
@@ -188,9 +194,9 @@ begin
     raise exception '시간 단위는 30분 또는 60분이어야 합니다';
   end if;
 
-  -- 방 생성 남용 방지: IP당 시간당 20개, 전체 시간당 500개
+  -- 방 생성 남용 방지: IP당 시간당 20개, 전체 시간당 200개
   perform _bump_throttle('ip:' || _client_ip(), 20, interval '1 hour');
-  perform _bump_throttle('global', 500, interval '1 hour');
+  perform _bump_throttle('global', 200, interval '1 hour');
 
   -- room id = 접근 자격이므로 추측 불가하게 8 hex (32비트)
   loop
@@ -215,8 +221,7 @@ begin
             case when p_owner_pin is not null then _hash_pin(p_owner_pin, v_salt) end,
             v_salt);
 
-  insert into usage_events (kind, room_id, day_count, expected_size, weekend)
-    values ('room_created', v_id, coalesce(p_day_count, 5), p_expected_size, coalesce(p_day_count, 5) >= 7);
+  perform _tally('room_created');
 
   return query select v_id, v_token;
 end $$;
@@ -350,7 +355,7 @@ begin
             case when p_set_pin is not null then _hash_pin(p_set_pin, v_salt) end,
             v_salt);
 
-  insert into usage_events (kind, room_id) values ('submission', p_room_id);
+  perform _tally('submission');
   return v_token;
 end $$;
 
@@ -525,7 +530,6 @@ end $$;
 create or replace function _gaptime_purge()
 returns void language sql security definer set search_path = public, pg_catalog as $$
   delete from rooms where expires_at <= now();
-  delete from usage_events where at < now() - interval '90 days';
   delete from create_throttle where window_start < now() - interval '2 hours';
 $$;
 

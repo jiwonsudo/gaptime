@@ -49,7 +49,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="mb-1 font-bold text-ink">4. 보관 기간</h2>
             <p>
-              방과 그 안의 모든 제출 데이터는 방 생성 후 <b>14일이 지나면 자동 삭제</b>됩니다. 방장이
+              방과 그 안의 모든 제출 데이터는 방 생성 후 <b>7일이 지나면 자동 삭제</b>됩니다. 방장이
               방을 직접 삭제하면 즉시 삭제됩니다. 익명 사용 통계는 개인을 식별할 수 없는 형태로
               보관됩니다.
             </p>

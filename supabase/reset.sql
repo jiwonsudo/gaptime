@@ -6,6 +6,7 @@ drop table if exists room_secrets cascade;
 drop table if exists submissions cascade;
 drop table if exists rooms cascade;
 drop table if exists usage_events cascade;
+drop table if exists usage_daily cascade;
 drop table if exists create_throttle cascade;
 
 drop function if exists create_room(text,text,int,int,int,int,text,int) cascade;
@@ -34,4 +35,5 @@ drop function if exists _reserved_slug(text) cascade;
 drop function if exists _pin_locked(timestamptz) cascade;
 drop function if exists _bump_throttle(text,int,interval) cascade;
 drop function if exists _client_ip() cascade;
+drop function if exists _tally(text) cascade;
 drop function if exists _gaptime_purge() cascade;
