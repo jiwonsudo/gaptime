@@ -101,7 +101,7 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
         />
 
         <Checkbox
-          label="제출 마감 (더 이상 시간표를 받지 않음)"
+          label="제출 마감 (더 이상 시간표를 추가할 수 없게 돼요.)"
           checked={locked}
           disabled={busy}
           onChange={(e) => setLocked(e.target.checked)}

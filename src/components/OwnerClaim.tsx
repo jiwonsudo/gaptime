@@ -49,6 +49,7 @@ export default function OwnerClaim({ roomId, onClaimed }: Props) {
         <>
           <Input
             inputMode="numeric"
+          autoComplete="off"
             maxLength={4}
             placeholder="PIN 4자리"
             value={pin}

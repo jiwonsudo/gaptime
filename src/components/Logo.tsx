@@ -12,8 +12,7 @@ export default function Logo({ className = 'text-2xl' }: Props) {
       className={`font-normal tracking-tight text-ink ${className}`}
       aria-label="everyFreeTime 홈으로"
     >
-      every<span className="font-bold">Free</span>Time
-      <sup className="ml-0.5 align-super text-[0.55em] text-ink/50">™</sup>
+      every<span className="font-bold">Free</span>Time™
     </Link>
   );
 }

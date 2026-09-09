@@ -1,7 +1,8 @@
 import { HOUR_MAX_END, HOUR_MIN_START } from '@/types';
+import { formatHour } from '@/lib/timeFormat';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
-import { ValidatedInput } from './ui/validated-input';
+import { Select } from './ui/select';
 
 export interface RoomSettings {
   title: string;
@@ -19,9 +20,22 @@ interface Props {
   onChange: (v: RoomSettings) => void;
 }
 
+// 8, 9, ... 24
+const HOURS = Array.from(
+  { length: HOUR_MAX_END - HOUR_MIN_START + 1 },
+  (_, i) => HOUR_MIN_START + i
+);
+
 export default function TimeRangeForm({ value, onChange }: Props) {
   function set<K extends keyof RoomSettings>(key: K, v: RoomSettings[K]) {
     onChange({ ...value, [key]: v });
+  }
+
+  function setStart(h: number) {
+    onChange({ ...value, startHour: h, endHour: Math.max(value.endHour, h + 1) });
+  }
+  function setEnd(h: number) {
+    onChange({ ...value, endHour: h, startHour: Math.min(value.startHour, h - 1) });
   }
 
   return (
@@ -52,35 +66,34 @@ export default function TimeRangeForm({ value, onChange }: Props) {
         onChange={(e) => set('includeWeekend', e.target.checked)}
       />
 
-      <ValidatedInput
-        label="시작 시각"
-        type="number"
-        inputMode="numeric"
-        value={String(value.startHour)}
-        validate={(raw) => {
-          const n = Number(raw);
-          if (raw.trim() === '' || Number.isNaN(n)) return '숫자를 입력해주세요';
-          if (n < HOUR_MIN_START) return `${HOUR_MIN_START}시부터 정할 수 있어요`;
-          if (n >= value.endHour) return '종료 시각보다 빨라야 해요';
-          return null;
-        }}
-        onCommit={(raw) => set('startHour', Number(raw))}
-      />
-
-      <ValidatedInput
-        label="종료 시각"
-        type="number"
-        inputMode="numeric"
-        value={String(value.endHour)}
-        validate={(raw) => {
-          const n = Number(raw);
-          if (raw.trim() === '' || Number.isNaN(n)) return '숫자를 입력해주세요';
-          if (n > HOUR_MAX_END) return `${HOUR_MAX_END}시(자정)까지만 가능해요`;
-          if (n <= value.startHour) return '시작 시각보다 늦어야 해요';
-          return null;
-        }}
-        onCommit={(raw) => set('endHour', Number(raw))}
-      />
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-semibold">볼 시간대</span>
+        <div className="flex items-center gap-2">
+          <Select
+            aria-label="시작 시각"
+            value={value.startHour}
+            onChange={(e) => setStart(Number(e.target.value))}
+          >
+            {HOURS.filter((h) => h < HOUR_MAX_END).map((h) => (
+              <option key={h} value={h}>
+                {formatHour(h)}
+              </option>
+            ))}
+          </Select>
+          <span className="text-sm text-ink/40">~</span>
+          <Select
+            aria-label="종료 시각"
+            value={value.endHour}
+            onChange={(e) => setEnd(Number(e.target.value))}
+          >
+            {HOURS.filter((h) => h > HOUR_MIN_START).map((h) => (
+              <option key={h} value={h}>
+                {formatHour(h)}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </div>
 
       <label className="flex flex-col gap-1 text-sm font-semibold">
         함께할 인원 <span className="font-normal text-ink/40">(본인 포함)</span>
@@ -102,18 +115,13 @@ export default function TimeRangeForm({ value, onChange }: Props) {
           onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
         />
         {value.ownerPinEnabled && (
-          <ValidatedInput
-            type="text"
+          <Input
             inputMode="numeric"
+            autoComplete="off"
             maxLength={4}
             placeholder="숫자 4자리"
             value={value.ownerPin}
-            validate={(raw) => {
-              if (raw === '') return null;
-              if (!/^\d{0,4}$/.test(raw)) return '숫자만 입력해주세요';
-              return null;
-            }}
-            onCommit={(raw) => set('ownerPin', raw.replace(/\D/g, '').slice(0, 4))}
+            onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
           />
         )}
       </div>

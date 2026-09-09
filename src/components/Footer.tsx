@@ -8,8 +8,7 @@ export default function Footer() {
     <footer className="mt-16 border-t border-ink/10">
       <div className="mx-auto flex max-w-4xl flex-col gap-2 px-5 py-8 text-xs text-ink/45">
         <div className="font-normal tracking-tight text-ink/70">
-          every<span className="font-bold">Free</span>Time
-          <sup className="ml-0.5 align-super text-[0.6em] text-ink/40">™</sup>
+          every<span className="font-bold">Free</span>Time™
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>© {YEAR} Jiwon Jeong</span>

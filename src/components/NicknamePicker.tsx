@@ -46,6 +46,7 @@ export default function NicknamePicker({ takenSlugs, onConfirm, onCancel }: Prop
       {usePin && (
         <Input
           inputMode="numeric"
+          autoComplete="off"
           maxLength={4}
           placeholder="숫자 4자리"
           value={pin}

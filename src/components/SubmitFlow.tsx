@@ -340,6 +340,7 @@ function Reclaim({
       {needPin && (
         <Input
           inputMode="numeric"
+          autoComplete="off"
           maxLength={4}
           placeholder="PIN 4자리"
           value={pin}
