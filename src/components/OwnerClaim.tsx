@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { claimOwner, roomHasOwnerPin } from '@/lib/supabase';
 import { setOwnerToken } from '@/lib/roomAuth';
 import { isValidPin } from '@/lib/nickname';
+import { errMessage } from '@/lib/errors';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 
@@ -28,7 +29,7 @@ export default function OwnerClaim({ roomId, onClaimed }: Props) {
       setOwnerToken(roomId, token);
       onClaimed(token);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'PIN 확인 실패');
+      setErr(errMessage(e, 'PIN 확인에 실패했어요'));
     }
   }
 

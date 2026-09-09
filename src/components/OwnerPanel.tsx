@@ -7,6 +7,7 @@ import {
   updateRoomAsOwner,
 } from '@/lib/supabase';
 import { clearOwnerToken } from '@/lib/roomAuth';
+import { errMessage } from '@/lib/errors';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
@@ -56,7 +57,7 @@ export default function OwnerPanel({ room, ownerToken, submissions, onChanged }:
       await fn();
       onChanged();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : '실패했어요');
+      setErr(errMessage(e, '실패했어요'));
     } finally {
       setBusy(false);
     }

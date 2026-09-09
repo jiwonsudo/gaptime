@@ -13,6 +13,7 @@ import { Modal } from './ui/modal';
 import { Shake, useShake } from './ui/shake';
 import { createRoom } from '@/lib/supabase';
 import { setOwnerToken } from '@/lib/roomAuth';
+import { errMessage } from '@/lib/errors';
 
 interface Props {
   tour: boolean;
@@ -91,7 +92,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
       setOwnerToken(room.id, ownerToken);
       navigate(`/room/${room.id}?created=1`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '방을 만들지 못했어요.');
+      setError(errMessage(e, '방을 만들지 못했어요.'));
     } finally {
       setBusy(false);
     }
@@ -113,7 +114,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
         </div>
         <p className="mb-8 text-sm text-ink/60">
           방을 만들고 링크를 공유하면, 팀원들이 각자 에타 시간표를 올려 모두의 빈
-          시간을 실시간으로 찾아줍니다. 로그인이 필요없는 서비스입니다.
+          시간을 실시간으로 찾아줘요. 로그인이 필요없는 서비스예요.
         </p>
 
         <div className="grid gap-6 md:grid-cols-[1fr_16rem]">
@@ -160,7 +161,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
           </p>
           <div className="mt-3 flex gap-2">
             <Input
-              placeholder="방 코드 (예: ab3f9k)"
+              placeholder="방 코드 (예: 7f3a9c2e)"
               value={code}
               onChange={(e) => setCode(e.target.value.trim())}
               onKeyDown={(e) => e.key === 'Enter' && code && navigate(`/room/${code}`)}

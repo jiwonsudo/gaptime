@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Occupancy, Room, Submission } from '@/types';
 import { imageToImageData } from '@/lib/imageData';
 import { computeOccupancy } from '@/lib/gridSampler';
-import { emptyOccupancy, resizeOccupancy } from '@/lib/occupancy';
+import { emptyOccupancy, resizeOccupancy, roomHourCount } from '@/lib/occupancy';
+import { errMessage } from '@/lib/errors';
 import {
   claimEditor,
   deleteOwnSubmission,
@@ -34,7 +35,7 @@ interface Props {
 type Stage = 'menu' | 'nickname' | 'source' | 'upload' | 'calibrate' | 'edit' | 'reclaim' | 'done';
 
 export default function SubmitFlow({ room, submissions, editTarget, onChanged }: Props) {
-  const hourCount = Math.max(1, room.end_hour - room.start_hour);
+  const hourCount = roomHourCount(room);
   const takenSlugs = useMemo(() => submissions.map((s) => s.slug), [submissions]);
 
   const [stage, setStage] = useState<Stage>('menu');
@@ -368,7 +369,4 @@ function Reclaim({
   );
 }
 
-function msg(e: unknown): string {
-  if (e && typeof e === 'object' && 'message' in e) return String((e as { message: unknown }).message);
-  return '문제가 생겼어요. 잠시 후 다시 시도해주세요.';
-}
+const msg = (e: unknown) => errMessage(e, '문제가 생겼어요. 잠시 후 다시 시도해주세요.');

@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import type { Room, Submission } from '@/types';
 import { getRoom, getSubmissions, subscribeRoom, verifyOwner } from '@/lib/supabase';
 import { getOwnerToken } from '@/lib/roomAuth';
+import { errMessage } from '@/lib/errors';
 import ResultGrid from './ResultGrid';
 import ShareCard from './ShareCard';
 import SubmitFlow from './SubmitFlow';
@@ -96,7 +97,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
           setOwnerTokenState(stored);
         }
       })
-      .catch((e) => alive && setLoadErr(e instanceof Error ? e.message : '방을 못 불러왔어요.'));
+      .catch((e) => alive && setLoadErr(errMessage(e, '방을 못 불러왔어요.')));
     refresh();
     const unsub = subscribeRoom(roomId, refresh);
     return () => {

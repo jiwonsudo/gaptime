@@ -27,3 +27,4 @@ drop function if exists update_room_as_owner(text,text,int,boolean,text,int) cas
 drop function if exists delete_room_as_owner(text,text) cascade;
 drop function if exists _hash_pin(text,text) cascade;
 drop function if exists _reserved_slug(text) cascade;
+drop function if exists _pin_locked(timestamptz) cascade;

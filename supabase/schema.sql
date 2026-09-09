@@ -33,23 +33,31 @@ create index if not exists submissions_room_id_idx on submissions (room_id);
 
 -- 제출자 수정 권한. 클라이언트가 직접 못 읽음 (RPC 검증 전용).
 create table if not exists submission_editors (
-  submission_id uuid primary key references submissions(id) on delete cascade,
-  room_id       text not null references rooms(id) on delete cascade,
-  slug          text not null,
-  editor_token  text not null,
-  pin_hash      text,
-  pin_salt      text,
+  submission_id  uuid primary key references submissions(id) on delete cascade,
+  room_id        text not null references rooms(id) on delete cascade,
+  slug           text not null,
+  editor_token   text not null,
+  pin_hash       text,
+  pin_salt       text,
+  pin_fails      int not null default 0,
+  pin_lock_until timestamptz,
   unique (room_id, slug)
 );
+alter table submission_editors add column if not exists pin_fails int not null default 0;
+alter table submission_editors add column if not exists pin_lock_until timestamptz;
 
 create table if not exists room_secrets (
-  room_id       text primary key references rooms(id) on delete cascade,
-  owner_token   text not null,
+  room_id        text primary key references rooms(id) on delete cascade,
+  owner_token    text not null,
   owner_pin_hash text,
-  owner_pin_salt text
+  owner_pin_salt text,
+  pin_fails      int not null default 0,
+  pin_lock_until timestamptz
 );
 alter table room_secrets add column if not exists owner_pin_hash text;
 alter table room_secrets add column if not exists owner_pin_salt text;
+alter table room_secrets add column if not exists pin_fails int not null default 0;
+alter table room_secrets add column if not exists pin_lock_until timestamptz;
 
 -- 익명 사용 통계 (방/제출이 삭제돼도 유지). 개인 식별 정보 없음.
 create table if not exists usage_events (
@@ -90,16 +98,22 @@ revoke all                    on usage_events       from anon, authenticated;
 -- 내부 헬퍼
 -- ─────────────────────────────────────────────────────────────
 create or replace function _hash_pin(p_pin text, p_salt text)
-returns text language sql immutable set search_path = public, extensions as $$
+returns text language sql immutable set search_path = pg_catalog, extensions as $$
   select encode(extensions.digest(p_salt || ':' || p_pin, 'sha256'), 'hex')
 $$;
 
 create or replace function _reserved_slug(p_slug text)
-returns boolean language sql immutable as $$
+returns boolean language sql immutable set search_path = pg_catalog as $$
   select lower(p_slug) = any (array[
     'admin','administrator','관리자','운영','운영자','방장','host','owner',
     'system','null','undefined','me','new','api','room','privacy'
   ])
+$$;
+
+-- PIN 무차별 대입 방지: 5회 실패 시 15분 잠금
+create or replace function _pin_locked(p_lock_until timestamptz)
+returns boolean language sql stable set search_path = pg_catalog as $$
+  select p_lock_until is not null and p_lock_until > now()
 $$;
 
 -- ─────────────────────────────────────────────────────────────
@@ -126,11 +140,15 @@ begin
   if p_owner_pin is not null and p_owner_pin !~ '^\d{4}$' then
     raise exception 'PIN은 숫자 4자리여야 합니다';
   end if;
+  if coalesce(p_day_count, 5) not in (5, 7) then
+    raise exception '요일 수는 5 또는 7이어야 합니다';
+  end if;
 
+  -- room id = 접근 자격이므로 추측 불가하게 8 hex (32비트)
   loop
-    v_id := lower(substr(encode(gen_random_bytes(8), 'hex'), 1, 6));
+    v_id := lower(substr(encode(gen_random_bytes(16), 'hex'), 1, 8));
     -- 문서/플레이스홀더에 쓰는 예시 코드는 실제로 발급하지 않는다
-    if v_id not in ('ab3f9k') and not exists (select 1 from rooms r where r.id = v_id) then
+    if v_id not in ('ab3f9k', '7f3a9c2e') and not exists (select 1 from rooms r where r.id = v_id) then
       exit;
     end if;
     v_try := v_try + 1;
@@ -164,9 +182,17 @@ begin
   if v_sec.owner_pin_hash is null then
     raise exception '이 방은 방장 PIN이 설정되지 않았어요';
   end if;
+  if _pin_locked(v_sec.pin_lock_until) then
+    raise exception 'PIN 시도가 너무 많아요. 잠시 후 다시 시도해주세요';
+  end if;
   if p_pin is null or _hash_pin(p_pin, v_sec.owner_pin_salt) <> v_sec.owner_pin_hash then
+    update room_secrets set
+      pin_fails = pin_fails + 1,
+      pin_lock_until = case when pin_fails + 1 >= 5 then now() + interval '15 minutes' else pin_lock_until end
+      where room_id = p_room_id;
     raise exception 'PIN이 맞지 않습니다';
   end if;
+  update room_secrets set pin_fails = 0, pin_lock_until = null where room_id = p_room_id;
   return v_sec.owner_token;  -- 회전하지 않음: 기존 기기도 계속 방장
 end $$;
 
@@ -210,6 +236,20 @@ begin
     raise exception 'PIN은 숫자 4자리여야 합니다';
   end if;
 
+  -- occupancy 구조/크기 검증 (저장 남용 방지)
+  if jsonb_typeof(p_occupancy) <> 'array'
+     or jsonb_array_length(p_occupancy) <> v_room.day_count
+     or pg_column_size(p_occupancy) > 4000 then
+    raise exception '시간표 데이터 형식이 올바르지 않습니다';
+  end if;
+  if exists (
+    select 1 from jsonb_array_elements(p_occupancy) e
+    where jsonb_typeof(e) <> 'array'
+       or jsonb_array_length(e) <> (v_room.end_hour - v_room.start_hour)
+  ) then
+    raise exception '시간표 데이터 형식이 올바르지 않습니다';
+  end if;
+
   select * into v_ed from submission_editors where room_id = p_room_id and slug = p_slug;
 
   if found then
@@ -217,7 +257,14 @@ begin
     if p_editor_token is not null and p_editor_token = v_ed.editor_token then
       null; -- ok
     elsif v_ed.pin_hash is not null then
+      if _pin_locked(v_ed.pin_lock_until) then
+        raise exception 'PIN 시도가 너무 많아요. 잠시 후 다시 시도해주세요';
+      end if;
       if p_pin is null or _hash_pin(p_pin, v_ed.pin_salt) <> v_ed.pin_hash then
+        update submission_editors set
+          pin_fails = pin_fails + 1,
+          pin_lock_until = case when pin_fails + 1 >= 5 then now() + interval '15 minutes' else pin_lock_until end
+          where submission_id = v_ed.submission_id;
         raise exception 'PIN이 맞지 않습니다';
       end if;
     end if;
@@ -226,15 +273,18 @@ begin
     update submissions set display_name = btrim(p_display_name), occupancy = p_occupancy
       where id = v_ed.submission_id;
 
+    -- PIN 을 새로/다시 설정하는 경우 salt 를 한 번만 계산 (해시-salt 불일치 방지)
+    if p_set_pin is not null then
+      v_salt := coalesce(v_ed.pin_salt, encode(gen_random_bytes(8), 'hex'));
+    end if;
+
     v_token := encode(gen_random_bytes(18), 'hex');
     update submission_editors
       set editor_token = v_token,
-          pin_hash = case
-            when p_set_pin is not null then _hash_pin(p_set_pin, coalesce(pin_salt, encode(gen_random_bytes(8),'hex')))
-            else pin_hash end,
-          pin_salt = case
-            when p_set_pin is not null then coalesce(pin_salt, encode(gen_random_bytes(8),'hex'))
-            else pin_salt end
+          pin_fails = 0,
+          pin_lock_until = null,
+          pin_hash = case when p_set_pin is not null then _hash_pin(p_set_pin, v_salt) else pin_hash end,
+          pin_salt = case when p_set_pin is not null then v_salt else pin_salt end
       where submission_id = v_ed.submission_id;
     return v_token;
   end if;
@@ -262,13 +312,28 @@ declare v_ed submission_editors; v_token text;
 begin
   select * into v_ed from submission_editors where room_id = p_room_id and slug = p_slug;
   if not found then raise exception '그 이름으로 올린 시간표가 없어요'; end if;
-  if v_ed.pin_hash is not null then
-    if p_pin is null or _hash_pin(p_pin, v_ed.pin_salt) <> v_ed.pin_hash then
-      raise exception 'PIN이 맞지 않습니다';
-    end if;
+
+  -- PIN 미설정(신뢰 모드): 토큰을 회전하지 않고 그대로 반환
+  --   (회전하면 트롤이 반복 호출로 원 사용자의 로컬 토큰을 무효화할 수 있음)
+  if v_ed.pin_hash is null then
+    return v_ed.editor_token;
   end if;
+
+  if _pin_locked(v_ed.pin_lock_until) then
+    raise exception 'PIN 시도가 너무 많아요. 잠시 후 다시 시도해주세요';
+  end if;
+  if p_pin is null or _hash_pin(p_pin, v_ed.pin_salt) <> v_ed.pin_hash then
+    update submission_editors set
+      pin_fails = pin_fails + 1,
+      pin_lock_until = case when pin_fails + 1 >= 5 then now() + interval '15 minutes' else pin_lock_until end
+      where submission_id = v_ed.submission_id;
+    raise exception 'PIN이 맞지 않습니다';
+  end if;
+
   v_token := encode(gen_random_bytes(18), 'hex');
-  update submission_editors set editor_token = v_token where submission_id = v_ed.submission_id;
+  update submission_editors set
+    editor_token = v_token, pin_fails = 0, pin_lock_until = null
+    where submission_id = v_ed.submission_id;
   return v_token;
 end $$;
 
@@ -322,6 +387,9 @@ begin
   end if;
   if p_day_count is not null and p_day_count not in (5, 7) then
     raise exception '요일 수는 5(월~금) 또는 7(월~일)만 됩니다';
+  end if;
+  if p_title is not null and btrim(p_title) = '' then
+    raise exception '방 이름은 비울 수 없습니다';
   end if;
   update rooms set
     expected_size = coalesce(p_expected_size, expected_size),

@@ -1,7 +1,7 @@
 # 에브리프리타임 — 상세 설계 (v2)
 
 이 문서는 [CLAUDE.md](./CLAUDE.md)의 MVP 위에 실제 배포(학교 전체 대상)를 위해 확정한
-추가 설계를 담는다. CLAUDE.md와 충돌하면 이 문서가 우선한다.
+추가 설계를 담는다. CLAUDE.md와 충돌하면 이 문서가 우선한다. 보안 모델은 [SECURITY.md](./SECURITY.md).
 
 ## 1. 방(Room)
 
@@ -15,7 +15,7 @@
 | 만료 | 생성 후 **14일** (무료). 만료된 방은 조회 불가, (선택) pg_cron으로 정리. 생성 화면에 안내 문구 |
 | 잠금 | 방장이 제출 마감 토글. 잠기면 신규/수정 제출 불가, 히트맵은 계속 조회 가능 |
 
-방 생성 → 6자 `room id` 발급 → `/(도메인)/room/<roomId>`.
+방 생성 → 8자 hex `room id` 발급(32비트, 추측 불가) → `/(도메인)/room/<roomId>`.
 
 ## 2. 신원(닉네임 기반)
 
@@ -137,11 +137,12 @@ submissions(
   unique(room_id, slug)
 )
 submission_editors(              -- 클라이언트 접근 불가
-  submission_id uuid pk, room_id text, slug text,
-  editor_token text, pin_hash text null, pin_salt text null
+  submission_id uuid pk, room_id text, slug text, editor_token text,
+  pin_hash text null, pin_salt text null, pin_fails int, pin_lock_until timestamptz null
 )
 room_secrets(                    -- 클라이언트 접근 불가
-  room_id text pk, owner_token text, owner_pin_hash text null, owner_pin_salt text null
+  room_id text pk, owner_token text, owner_pin_hash text null, owner_pin_salt text null,
+  pin_fails int, pin_lock_until timestamptz null
 )
 usage_events(                    -- 클라이언트 접근 불가. 방/제출 삭제돼도 유지. 개인정보 없음
   id bigint pk, kind text, room_id text, day_count int, expected_size int, weekend bool, at timestamptz
