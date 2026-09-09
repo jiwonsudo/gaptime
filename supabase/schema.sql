@@ -284,8 +284,21 @@ grant execute on function delete_room_as_owner(text,text)                       
 -- ─────────────────────────────────────────────────────────────
 -- Realtime
 -- ─────────────────────────────────────────────────────────────
-alter publication supabase_realtime add table submissions;
-alter publication supabase_realtime add table rooms;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'submissions'
+  ) then
+    alter publication supabase_realtime add table submissions;
+  end if;
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'rooms'
+  ) then
+    alter publication supabase_realtime add table rooms;
+  end if;
+end $$;
 
 -- (선택) 만료된 방 정리 — pg_cron 필요
 -- select cron.schedule('gaptime-purge', '0 4 * * *', $$delete from rooms where expires_at <= now()$$);
