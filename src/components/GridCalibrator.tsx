@@ -6,7 +6,6 @@ import {
   EVERYTIME_IMAGE_END,
   EVERYTIME_IMAGE_START,
 } from '@/types';
-import { formatHour } from '@/lib/timeFormat';
 import { Button } from './ui/button';
 
 interface Props {
@@ -158,10 +157,9 @@ export default function GridCalibrator({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink/60">
-        에타 시간표는 <b>항상 월~금 5칸 × 오전 8시~오후 6시 10칸</b>으로 고정이에요. 주황색 두 점을
-        그 격자의 좌상단(월요일 8시)·우하단(금요일 18시) 모서리에 맞추면 됩니다. 초록 부분이 이 방의
-        시간대({formatHour(roomStartHour)}~{formatHour(roomEndHour)})예요.
-        {weekend && ' 토·일은 제출 후 직접 칠하면 돼요.'}
+        주황색 두 점을 시간표 격자의 <b>왼쪽 위(월요일 8시)</b>와 <b>오른쪽 아래(금요일 6시)</b>
+        모서리에 맞춰주세요. 초록 부분이 이 방에서 볼 시간대예요.
+        {weekend && ' 토·일 칸은 다음 단계에서 직접 칠하면 돼요.'}
       </p>
 
       <div ref={wrapRef} className="relative w-full select-none" style={{ maxWidth: MAX_W }}>
