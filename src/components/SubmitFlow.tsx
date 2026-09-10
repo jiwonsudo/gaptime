@@ -100,6 +100,18 @@ export default function SubmitFlow({
     }
   }
 
+  // 방장이 다른 사람(옆자리·폰 없는 사람) 대신 올리기 / 다른 사람 이어서 올리기
+  function startForOther() {
+    setEditorToken(null);
+    setSetPin(null);
+    setDisplayName('');
+    setSlug('');
+    setImage(null);
+    setErr(null);
+    setOcc(emptyOccupancy(room.day_count, slotCount));
+    setStage('nickname');
+  }
+
   async function doSubmit() {
     setErr(null);
     setStage('edit');
@@ -150,6 +162,11 @@ export default function SubmitFlow({
           <Button variant="cta" onClick={startNew}>
             내 시간표 올리기
           </Button>
+          {presetNickname && (
+            <Button variant="outline" size="sm" onClick={startForOther}>
+              다른 사람 대신 올리기
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setStage('reclaim')}>
             이미 올린 시간표 수정하기
           </Button>
@@ -266,6 +283,14 @@ export default function SubmitFlow({
               </Button>
             )}
           </div>
+          {editorToken && (
+            <button
+              className="self-start text-xs text-ink/50 underline"
+              onClick={startForOther}
+            >
+              다른 사람 시간표 올리기
+            </button>
+          )}
         </>
       )}
 
@@ -301,7 +326,7 @@ export default function SubmitFlow({
             <Button variant="outline" size="sm" onClick={() => setStage('edit')}>
               수정 또는 삭제
             </Button>
-            <Button variant="ghost" size="sm" onClick={reset}>
+            <Button variant="ghost" size="sm" onClick={startForOther}>
               다른 사람 올리기
             </Button>
           </div>
