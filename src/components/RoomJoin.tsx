@@ -71,6 +71,8 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   const [params] = useSearchParams();
   const justCreated = params.get('created') === '1';
   const editToken = params.get('k');
+  // 이 브라우저가 방장인지 (localStorage 동기 확인 — 공유 카드 기본 펼침 여부)
+  const looksLikeOwner = justCreated || !!getOwnerToken(roomId);
 
   const [room, setRoom] = useState<Room | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -198,7 +200,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
 
         <div className="flex flex-col gap-5">
           <div data-tour="share">
-            <Collapsible title="참여 링크 · 방 코드" defaultOpen={justCreated}>
+            <Collapsible title="참여 링크 · 방 코드" defaultOpen={looksLikeOwner}>
               <ShareCard
                 url={shareUrl}
                 code={roomId}
