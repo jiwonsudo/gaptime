@@ -65,10 +65,10 @@ export default function ShareCard({
             await copyText(url);
             flashLink();
           }}
-          className="flex items-center justify-between gap-2 rounded-md bg-ink/5 px-3 py-2 text-left transition-colors hover:bg-ink/10"
+          className="flex flex-col gap-1 rounded-md bg-ink/5 px-3 py-2 text-left transition-colors hover:bg-ink/10"
         >
-          <span className="truncate text-xs text-ink/70">{url}</span>
-          <span className="shrink-0 text-xs font-semibold text-ink/50">
+          <span className="break-all text-xs text-ink/70">{url}</span>
+          <span className="text-xs font-semibold text-ink/50">
             {linkCopied ? '복사됨' : '눌러서 복사'}
           </span>
         </button>
