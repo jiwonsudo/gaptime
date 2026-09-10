@@ -57,33 +57,36 @@ export default function ShareCard({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         <div className="text-sm font-extrabold">{label}</div>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="cta"
-            className="flex-1"
-            onClick={async () => {
-              await copyText(url);
-              flashLink();
-            }}
-          >
-            {linkCopied ? '복사됐어요' : '링크 복사'}
-          </Button>
+        <button
+          type="button"
+          onClick={async () => {
+            await copyText(url);
+            flashLink();
+          }}
+          className="flex items-center justify-between gap-2 rounded-md bg-ink/5 px-3 py-2 text-left transition-colors hover:bg-ink/10"
+        >
+          <span className="truncate text-xs text-ink/70">{url}</span>
+          <span className="shrink-0 text-xs font-semibold text-ink/50">
+            {linkCopied ? '복사됨' : '눌러서 복사'}
+          </span>
+        </button>
+        <div className="mt-1 flex gap-2">
           {typeof navigator !== 'undefined' && 'share' in navigator && (
             <Button
               size="sm"
               variant="outline"
+              className="flex-1"
               onClick={() =>
                 navigator.share({ title: 'everyFreeTime', text: shareText, url }).catch(() => {})
               }
             >
-              공유
+              공유하기
             </Button>
           )}
-          <Button size="sm" variant="outline" onClick={() => setShowQr((v) => !v)}>
-            {showQr ? 'QR 숨기기' : 'QR'}
+          <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowQr((v) => !v)}>
+            {showQr ? 'QR 숨기기' : 'QR 코드'}
           </Button>
         </div>
       </div>
