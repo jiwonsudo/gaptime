@@ -128,6 +128,15 @@ export async function deleteOwnSubmission(
   if (error) throw error;
 }
 
+// ── 분석(익명 집계) ───────────────────────────────────────────
+export async function submitScanFeedback(good: boolean, diffPercent: number | null): Promise<void> {
+  const { error } = await supabase.rpc('submit_scan_feedback', {
+    p_good: good,
+    p_diff_percent: diffPercent,
+  });
+  if (error) throw error;
+}
+
 // ── 방장 관리 ─────────────────────────────────────────────────
 export async function verifyOwner(roomId: string, ownerToken: string): Promise<boolean> {
   const { data, error } = await supabase.rpc('verify_owner', {

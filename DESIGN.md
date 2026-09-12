@@ -249,3 +249,12 @@ CLAUDE.md에서 스트레치/비목표였지만 배포를 위해 앞당김:
   `focus_participant`, `tutorial_opened`/`tutorial_completed`.
 - 개인 식별 정보(닉네임, occupancy 등)는 이벤트 파라미터에 절대 안 실음.
 - 개인정보처리방침 §5 에 고지.
+- GA로 안 되는 것(방 단위 집계)은 Supabase 히스토그램 테이블로 별도 수집:
+  `stat_expected_size`(생성 시 고른 인원수), `stat_final_size`(방 만료/삭제 시점 실제 제출
+  인원 구간), `stat_scan_feedback`(이미지 인식 👍/👎), `stat_scan_diff`(자동 인식 결과를
+  사용자가 고친 칸 비율 구간). 전부 익명 카운터, RLS로 클라이언트 접근 불가, 조회는
+  Supabase SQL Editor에서 직접(`docs/analytics-queries.md`).
+- 스캔 만족도: 이미지 업로드로 제출한 뒤 'done' 화면에 👍/👎 인라인 프롬프트
+  (`SubmitFlow`). 동시에 자동 인식 결과 대비 사용자가 편집기에서 고친 칸 비율을
+  계산해(`scanDiffPercent`) GA 이벤트 `scan_feedback`/`submission_created` 파라미터와
+  `stat_scan_diff`에 같이 기록 — 명시적 평가 없이도 인식 품질을 간접 측정.

@@ -10,6 +10,7 @@ import {
   deleteOwnSubmission,
   editorHasPin,
   submitOccupancy,
+  submitScanFeedback,
 } from '@/lib/supabase';
 import {
   getLocalEditor,
@@ -57,6 +58,9 @@ export default function SubmitFlow({
   const [personalUrl, setPersonalUrl] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
   const [method, setMethod] = useState<'image' | 'manual' | null>(null);
+  // 자동 인식 직후 스냅샷(칩 편집으로 수정하기 전) — 만족도 계산용
+  const [autoDetected, setAutoDetected] = useState<Occupancy | null>(null);
+  const [feedbackGiven, setFeedbackGiven] = useState(false);
 
   // 같은 기기에 저장된 내 제출 → 바로 수정 진입
   const local = useMemo(() => getLocalEditor(room.id), [room.id]);
@@ -87,6 +91,9 @@ export default function SubmitFlow({
     setDisplayName('');
     setSlug('');
     setOcc(emptyOccupancy(room.day_count, slotCount));
+    setMethod(null);
+    setAutoDetected(null);
+    setFeedbackGiven(false);
   }
 
   // "내 시간표 올리기" — 방장은 이름을 이미 알므로 닉네임 단계를 건너뛴다
@@ -111,12 +118,30 @@ export default function SubmitFlow({
     setImage(null);
     setErr(null);
     setOcc(emptyOccupancy(room.day_count, slotCount));
+    setMethod(null);
+    setAutoDetected(null);
+    setFeedbackGiven(false);
     setStage('nickname');
+  }
+
+  // 자동 인식 결과 대비 사용자가 손으로 고친 칸의 비율(0~100). 직접입력이면 null.
+  function scanDiffPercent(): number | null {
+    if (!autoDetected) return null;
+    let total = 0;
+    let changed = 0;
+    for (let d = 0; d < occ.length; d++) {
+      for (let s = 0; s < (occ[d]?.length ?? 0); s++) {
+        total++;
+        if ((occ[d]?.[s] ?? false) !== (autoDetected[d]?.[s] ?? false)) changed++;
+      }
+    }
+    return total > 0 ? Math.round((changed / total) * 100) : 0;
   }
 
   async function doSubmit() {
     setErr(null);
     const isNew = !editorToken;
+    const diffPercent = scanDiffPercent();
     setStage('edit');
     try {
       const token = await submitOccupancy({
@@ -137,9 +162,21 @@ export default function SubmitFlow({
         method: method ?? 'unknown',
         day_count: room.day_count,
         slot_minutes: room.slot_minutes,
+        ...(diffPercent !== null ? { scan_diff_percent: diffPercent } : {}),
       });
     } catch (e) {
       setErr(msg(e));
+    }
+  }
+
+  async function sendScanFeedback(good: boolean) {
+    const diffPercent = scanDiffPercent();
+    setFeedbackGiven(true);
+    track('scan_feedback', { good, ...(diffPercent !== null ? { diff_percent: diffPercent } : {}) });
+    try {
+      await submitScanFeedback(good, diffPercent);
+    } catch {
+      /* 만족도 기록 실패는 조용히 무시 (제출 자체는 이미 성공) */
     }
   }
 
@@ -210,6 +247,7 @@ export default function SubmitFlow({
             variant="outline"
             onClick={() => {
               setMethod('manual');
+              setAutoDetected(null);
               setOcc(emptyOccupancy(room.day_count, slotCount));
               setStage('edit');
             }}
@@ -254,16 +292,16 @@ export default function SubmitFlow({
           onConfirm={(r) => {
             try {
               const data = imageToImageData(image);
-              setOcc(
-                computeOccupancy(data, r.box, {
-                  dayCount: room.day_count,
-                  slotMinutes: room.slot_minutes,
-                  roomStartHour: room.start_hour,
-                  roomEndHour: room.end_hour,
-                  imageStartHour: r.imageStartHour,
-                  imageEndHour: r.imageEndHour,
-                })
-              );
+              const detected = computeOccupancy(data, r.box, {
+                dayCount: room.day_count,
+                slotMinutes: room.slot_minutes,
+                roomStartHour: room.start_hour,
+                roomEndHour: room.end_hour,
+                imageStartHour: r.imageStartHour,
+                imageEndHour: r.imageEndHour,
+              });
+              setOcc(detected);
+              setAutoDetected(detected); // 사용자가 고치기 전 원본 — 만족도 계산용
               setImage(null);
               setStage('edit');
             } catch (e) {
@@ -332,6 +370,30 @@ export default function SubmitFlow({
       {stage === 'done' && (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-free">시간표가 올라갔어요. 히트맵이 갱신됐어요.</p>
+          {method === 'image' && autoDetected && !feedbackGiven && (
+            <div className="flex items-center justify-between gap-2 rounded-md bg-ink/5 px-3 py-2">
+              <span className="text-xs text-ink/60">시간표 인식이 잘 됐나요?</span>
+              <div className="flex gap-1">
+                <button
+                  aria-label="잘 됐어요"
+                  className="rounded px-2 py-1 text-base hover:bg-ink/10"
+                  onClick={() => sendScanFeedback(true)}
+                >
+                  👍
+                </button>
+                <button
+                  aria-label="별로였어요"
+                  className="rounded px-2 py-1 text-base hover:bg-ink/10"
+                  onClick={() => sendScanFeedback(false)}
+                >
+                  👎
+                </button>
+              </div>
+            </div>
+          )}
+          {method === 'image' && feedbackGiven && (
+            <p className="text-xs text-ink/40">의견 고마워요, 인식 정확도 개선에 참고할게요.</p>
+          )}
           <ShareCard
             url={personalUrl}
             label="내 수정 링크"

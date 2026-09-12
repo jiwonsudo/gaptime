@@ -71,6 +71,24 @@ create table if not exists usage_daily (
 );
 drop table if exists usage_events cascade;
 
+-- 분석용 히스토그램 — 전부 익명 집계(카운터)만. 개별 방/유저 식별 불가.
+create table if not exists stat_expected_size (   -- 방 생성 시 고른 "함께할 인원"
+  n     int primary key,
+  count bigint not null default 0
+);
+create table if not exists stat_final_size (       -- 방이 끝날 때 실제 제출한 인원 수(구간)
+  bucket text primary key,                          -- '0','1','2-4','5-9','10-19','20+'
+  count  bigint not null default 0
+);
+create table if not exists stat_scan_feedback (     -- 이미지 인식 만족도 (제출 후 👍/👎)
+  rating text primary key,                          -- 'good' | 'bad'
+  count  bigint not null default 0
+);
+create table if not exists stat_scan_diff (         -- 자동 인식 결과를 사용자가 고친 비율
+  bucket text primary key,                          -- '0%','1-10%','11-25%','26-50%','51%+'
+  count  bigint not null default 0
+);
+
 alter table rooms add column if not exists host_name text not null default '';
 
 -- 방 생성 남용 방지용 카운터 (클라이언트 접근 불가)
@@ -89,6 +107,10 @@ alter table submission_editors enable row level security;
 alter table room_secrets       enable row level security;
 alter table usage_daily        enable row level security;
 alter table create_throttle    enable row level security;
+alter table stat_expected_size enable row level security;
+alter table stat_final_size    enable row level security;
+alter table stat_scan_feedback enable row level security;
+alter table stat_scan_diff     enable row level security;
 
 drop policy if exists "rooms read" on rooms;
 create policy "rooms read" on rooms for select using (expires_at > now());
@@ -103,6 +125,10 @@ revoke all                    on submission_editors from anon, authenticated;
 revoke all                    on room_secrets       from anon, authenticated;
 revoke all                    on usage_daily        from anon, authenticated;
 revoke all                    on create_throttle    from anon, authenticated;
+revoke all                    on stat_expected_size from anon, authenticated;
+revoke all                    on stat_final_size    from anon, authenticated;
+revoke all                    on stat_scan_feedback from anon, authenticated;
+revoke all                    on stat_scan_diff     from anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────
 -- 내부 헬퍼
@@ -149,6 +175,32 @@ create or replace function _tally(p_kind text)
 returns void language sql security definer set search_path = public, pg_catalog as $$
   insert into usage_daily (day, kind, count) values (current_date, p_kind, 1)
   on conflict (day, kind) do update set count = usage_daily.count + 1
+$$;
+
+-- 방 생성 시 고른 "함께할 인원" 히스토그램
+create or replace function _bump_expected_size(p_n int)
+returns void language sql security definer set search_path = public, pg_catalog as $$
+  insert into stat_expected_size (n, count) values (p_n, 1)
+  on conflict (n) do update set count = stat_expected_size.count + 1
+$$;
+
+create or replace function _size_bucket(p_n int)
+returns text language sql immutable set search_path = pg_catalog as $$
+  select case
+    when p_n <= 0 then '0'
+    when p_n = 1 then '1'
+    when p_n between 2 and 4 then '2-4'
+    when p_n between 5 and 9 then '5-9'
+    when p_n between 10 and 19 then '10-19'
+    else '20+'
+  end
+$$;
+
+-- 방이 삭제/만료될 때 실제 제출 인원 수(구간) 히스토그램
+create or replace function _bump_final_size(p_n int)
+returns void language sql security definer set search_path = public, pg_catalog as $$
+  insert into stat_final_size (bucket, count) values (_size_bucket(p_n), 1)
+  on conflict (bucket) do update set count = stat_final_size.count + 1
 $$;
 
 -- 짧은 랜덤 코드 (0-9a-z, 6자 ≈ 31비트) — room id 용
@@ -236,6 +288,7 @@ begin
             v_salt);
 
   perform _tally('room_created');
+  perform _bump_expected_size(p_expected_size);
 
   return query select v_id, v_token;
 end $$;
@@ -434,6 +487,28 @@ begin
   delete from submissions where id = v_ed.submission_id;
 end $$;
 
+-- 이미지 인식 만족도. p_diff_percent: 자동 인식 결과를 사용자가 고친 칸의 비율(0~100), 직접입력이면 null.
+-- 익명 집계만 남기고 방/유저와 연결하지 않는다.
+create or replace function submit_scan_feedback(p_good boolean, p_diff_percent int)
+returns void language plpgsql security definer set search_path = public, pg_catalog as $$
+begin
+  perform _bump_throttle('feedback:' || _client_ip(), 30, interval '1 hour');
+  insert into stat_scan_feedback (rating, count)
+    values (case when p_good then 'good' else 'bad' end, 1)
+    on conflict (rating) do update set count = stat_scan_feedback.count + 1;
+  if p_diff_percent is not null then
+    insert into stat_scan_diff (bucket, count) values (
+      case
+        when p_diff_percent <= 0 then '0%'
+        when p_diff_percent <= 10 then '1-10%'
+        when p_diff_percent <= 25 then '11-25%'
+        when p_diff_percent <= 50 then '26-50%'
+        else '51%+'
+      end, 1)
+    on conflict (bucket) do update set count = stat_scan_diff.count + 1;
+  end if;
+end $$;
+
 -- ─────────────────────────────────────────────────────────────
 -- 방장 RPC
 -- ─────────────────────────────────────────────────────────────
@@ -509,8 +584,11 @@ end $$;
 
 create or replace function delete_room_as_owner(p_room_id text, p_owner_token text)
 returns void language plpgsql security definer set search_path = public, extensions as $$
+declare v_n int;
 begin
   if not verify_owner(p_room_id, p_owner_token) then raise exception '권한이 없습니다'; end if;
+  select count(*) into v_n from submissions where room_id = p_room_id;
+  perform _bump_final_size(v_n);
   delete from rooms where id = p_room_id;
 end $$;
 
@@ -528,6 +606,7 @@ grant execute on function verify_owner(text,text)                               
 grant execute on function delete_submission_as_owner(uuid,text)                  to anon, authenticated;
 grant execute on function update_room_as_owner(text,text,int,boolean,text,int,int,int,int) to anon, authenticated;
 grant execute on function delete_room_as_owner(text,text)                        to anon, authenticated;
+grant execute on function submit_scan_feedback(boolean,int)                      to anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────
 -- Realtime
@@ -552,10 +631,20 @@ end $$;
 -- 자동 정리 (pg_cron) — 대시보드 Database > Extensions 에서 pg_cron 활성화 필요
 -- ─────────────────────────────────────────────────────────────
 create or replace function _gaptime_purge()
-returns void language sql security definer set search_path = public, pg_catalog as $$
+returns void language plpgsql security definer set search_path = public, pg_catalog as $$
+declare r record;
+begin
+  -- 삭제 전에 각 방의 실제 제출 인원을 히스토그램에 기록
+  for r in
+    select rm.id, (select count(*) from submissions s where s.room_id = rm.id) as n
+    from rooms rm where rm.expires_at <= now()
+  loop
+    perform _bump_final_size(r.n);
+  end loop;
+
   delete from rooms where expires_at <= now();
   delete from create_throttle where window_start < now() - interval '2 hours';
-$$;
+end $$;
 
 do $$
 begin
