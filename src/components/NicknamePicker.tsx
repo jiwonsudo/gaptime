@@ -36,7 +36,7 @@ export default function NicknamePicker({ takenSlugs, onConfirm, onCancel }: Prop
       {check.ok && !taken && (
         <p className="text-xs text-ink/50">링크에는 “{check.slug}” (으)로 들어가요</p>
       )}
-      <p className="text-xs text-ink/40">이 이름은 방에 참여한 사람들 모두에게 보여요. 조심해서 작성해주세요.</p>
+      <p className="text-xs text-ink/40">남들에게도 보이니 신중히 작성해주세요.</p>
 
       <Checkbox
         label="PIN 4자리 설정 (다른 기기에서 수정할 때 사용)"

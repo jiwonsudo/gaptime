@@ -46,5 +46,6 @@ drop function if exists _reserved_slug(text) cascade;
 drop function if exists _pin_locked(timestamptz) cascade;
 drop function if exists _bump_throttle(text,int,interval) cascade;
 drop function if exists _client_ip() cascade;
+drop function if exists _random_code(int) cascade;
 drop function if exists _tally(text) cascade;
 drop function if exists _gaptime_purge() cascade;

@@ -62,7 +62,7 @@ export default function TimeRangeForm({ value, onChange }: Props) {
           onChange={(e) => set('hostName', e.target.value)}
         />
         <span className="text-xs font-normal text-ink/40">
-          공유 메시지에 들어가고, 방장이 시간표 올릴 때도 이 이름을 써요.
+          남들에게도 보이니 신중히 작성해주세요. 방장이 시간표 올릴 때도 이 이름을 써요.
         </span>
       </label>
 

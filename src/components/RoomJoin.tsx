@@ -163,8 +163,8 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
       </div>
       <h1 className="text-xl font-extrabold">{room.title || '이름 없는 방'}</h1>
       <p className="mb-6 text-xs text-ink/40">
-        방 코드 {roomId}
-        {room.host_name && ` · ${room.host_name}님이 만듦`}
+        {roomId}
+        {room.host_name && ` · ${room.host_name}님의 방`}
       </p>
 
       {justCreated && (

@@ -151,6 +151,20 @@ returns void language sql security definer set search_path = public, pg_catalog 
   on conflict (day, kind) do update set count = usage_daily.count + 1
 $$;
 
+-- 짧은 랜덤 코드 (0-9a-z, 6자 ≈ 31비트) — room id 용
+create or replace function _random_code(p_len int)
+returns text language plpgsql stable set search_path = pg_catalog, extensions as $$
+declare
+  alphabet text := '0123456789abcdefghijklmnopqrstuvwxyz';
+  raw bytea := gen_random_bytes(p_len);
+  result text := '';
+begin
+  for i in 0..p_len - 1 loop
+    result := result || substr(alphabet, (get_byte(raw, i) % 36) + 1, 1);
+  end loop;
+  return result;
+end $$;
+
 -- PostgREST 가 전달하는 클라이언트 IP (best-effort)
 create or replace function _client_ip()
 returns text language sql stable set search_path = pg_catalog as $$
@@ -198,11 +212,11 @@ begin
   perform _bump_throttle('ip:' || _client_ip(), 20, interval '1 hour');
   perform _bump_throttle('global', 150, interval '1 hour');
 
-  -- room id = 접근 자격이므로 추측 불가하게 8 hex (32비트)
+  -- room id = 접근 자격이므로 추측이 쉽지 않게 6자 base36 (≈31비트)
   loop
-    v_id := lower(substr(encode(gen_random_bytes(16), 'hex'), 1, 8));
+    v_id := _random_code(6);
     -- 문서/플레이스홀더에 쓰는 예시 코드는 실제로 발급하지 않는다
-    if v_id not in ('ab3f9k', '7f3a9c2e') and not exists (select 1 from rooms r where r.id = v_id) then
+    if v_id not in ('ab3f9k', 'kf82x9') and not exists (select 1 from rooms r where r.id = v_id) then
       exit;
     end if;
     v_try := v_try + 1;

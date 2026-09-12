@@ -190,7 +190,7 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
           </p>
           <div className="mt-3 flex gap-2">
             <Input
-              placeholder="방 코드 (예: 7f3a9c2e)"
+              placeholder="방 코드 (예: kf82x9)"
               value={code}
               onChange={(e) => setCode(e.target.value.trim())}
               onKeyDown={(e) => e.key === 'Enter' && code && navigate(`/room/${code}`)}
