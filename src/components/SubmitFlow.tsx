@@ -62,6 +62,9 @@ export default function SubmitFlow({
   // 자동 인식 직후 스냅샷(칩 편집으로 수정하기 전) — 만족도 계산용
   const [autoDetected, setAutoDetected] = useState<Occupancy | null>(null);
   const [feedbackGiven, setFeedbackGiven] = useState(false);
+  const [hasPin, setHasPin] = useState(false);
+  const [addingPin, setAddingPin] = useState(false);
+  const [pinInput, setPinInput] = useState('');
 
   // 같은 기기에 저장된 내 제출 → 바로 수정 진입
   const local = useMemo(() => getLocalEditor(room.id), [room.id]);
@@ -95,6 +98,9 @@ export default function SubmitFlow({
     setMethod(null);
     setAutoDetected(null);
     setFeedbackGiven(false);
+    setHasPin(false);
+    setAddingPin(false);
+    setPinInput('');
   }
 
   // "내 시간표 올리기" — 방장은 이름을 이미 알므로 닉네임 단계를 건너뛴다
@@ -122,6 +128,9 @@ export default function SubmitFlow({
     setMethod(null);
     setAutoDetected(null);
     setFeedbackGiven(false);
+    setHasPin(false);
+    setAddingPin(false);
+    setPinInput('');
     setStage('nickname');
   }
 
@@ -159,12 +168,39 @@ export default function SubmitFlow({
       setPersonalUrl(url);
       setStage('done');
       onChanged();
+      editorHasPin(room.id, slug)
+        .then((v) => setHasPin(!!v))
+        .catch(() => setHasPin(!!setPin));
       track(isNew ? 'submission_created' : 'submission_edited', {
         method: method ?? 'unknown',
         day_count: room.day_count,
         slot_minutes: room.slot_minutes,
         ...(diffPercent !== null ? { scan_diff_percent: diffPercent } : {}),
       });
+    } catch (e) {
+      setErr(msg(e));
+    }
+  }
+
+  // 제출 완료 후 PIN을 뒤늦게 추가 — 같은 editorToken이 있으므로 기존 PIN 없이도 설정 가능
+  async function addPin() {
+    if (!editorToken || !isValidPin(pinInput)) return;
+    setErr(null);
+    try {
+      const token = await submitOccupancy({
+        roomId: room.id,
+        displayName,
+        slug,
+        occupancy: occ,
+        editorToken,
+        setPin: pinInput,
+      });
+      setEditorToken(token);
+      setLocalEditor(room.id, { slug, token });
+      setHasPin(true);
+      setAddingPin(false);
+      setPinInput('');
+      track('pin_added_after_submit');
     } catch (e) {
       setErr(msg(e));
     }
@@ -397,11 +433,40 @@ export default function SubmitFlow({
           {method === 'image' && feedbackGiven && (
             <p className="text-xs text-ink/40">의견 고마워요, 인식 정확도 개선에 참고할게요.</p>
           )}
-          <ShareCard
-            url={personalUrl}
-            label="내 수정 링크"
-            hint="이 링크(또는 QR)를 나에게 보내두면 다른 기기에서도 바로 수정할 수 있어요."
-          />
+          {hasPin ? (
+            <ShareCard
+              url={personalUrl}
+              label="내 수정 링크"
+              hint="이 링크(또는 QR)를 나에게 보내두면 PIN 없이도 다른 기기에서 바로 수정할 수 있어요."
+            />
+          ) : (
+            <div className="flex flex-col gap-2 rounded-md bg-cta/5 px-3 py-2 text-xs leading-relaxed text-ink/60">
+              <p>
+                PIN을 설정하지 않았어요. 다른 기기에서 고치려면 방 페이지에서 "이미 올린 시간표
+                수정하기" → 닉네임({displayName}) 입력만 하면 열려요 — 대신 같은 이름을 아는
+                사람이면 누구나 내 시간표를 고치거나 지울 수 있어요.
+              </p>
+              {addingPin ? (
+                <div className="flex gap-2">
+                  <Input
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={4}
+                    placeholder="숫자 4자리"
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  />
+                  <Button variant="cta" size="sm" disabled={!isValidPin(pinInput)} onClick={addPin}>
+                    설정
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="outline" size="sm" className="self-start" onClick={() => setAddingPin(true)}>
+                  PIN 설정해서 나만 수정하게 하기
+                </Button>
+              )}
+            </div>
+          )}
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setStage('edit')}>
               수정 또는 삭제

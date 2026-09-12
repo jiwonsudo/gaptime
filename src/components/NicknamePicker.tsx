@@ -55,7 +55,7 @@ export default function NicknamePicker({ takenSlugs, onConfirm, onCancel }: Prop
       ) : (
         <p className="rounded-md bg-cta/5 px-2.5 py-2 text-xs leading-relaxed text-cta">
           PIN을 설정하지 않으면, 이 방에 들어온 누구나 “{check.ok ? check.displayName : '이 이름'}”으로
-          당신의 시간표를 덮어쓰거나 지울 수 있어요. 다른 기기에서 수정하려면 개인 링크도 필요해요.
+          당신의 시간표를 덮어쓰거나 지울 수 있어요. (제출 후에도 설정할 수 있어요)
         </p>
       )}
 
