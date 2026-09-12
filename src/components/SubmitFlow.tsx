@@ -4,6 +4,7 @@ import { imageToImageData } from '@/lib/imageData';
 import { computeOccupancy } from '@/lib/gridSampler';
 import { emptyOccupancy, resizeOccupancy, roomSlotCount } from '@/lib/occupancy';
 import { errMessage } from '@/lib/errors';
+import { track } from '@/lib/analytics';
 import {
   claimEditor,
   deleteOwnSubmission,
@@ -55,6 +56,7 @@ export default function SubmitFlow({
   const [err, setErr] = useState<string | null>(null);
   const [personalUrl, setPersonalUrl] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
+  const [method, setMethod] = useState<'image' | 'manual' | null>(null);
 
   // 같은 기기에 저장된 내 제출 → 바로 수정 진입
   const local = useMemo(() => getLocalEditor(room.id), [room.id]);
@@ -114,6 +116,7 @@ export default function SubmitFlow({
 
   async function doSubmit() {
     setErr(null);
+    const isNew = !editorToken;
     setStage('edit');
     try {
       const token = await submitOccupancy({
@@ -130,6 +133,11 @@ export default function SubmitFlow({
       setPersonalUrl(url);
       setStage('done');
       onChanged();
+      track(isNew ? 'submission_created' : 'submission_edited', {
+        method: method ?? 'unknown',
+        day_count: room.day_count,
+        slot_minutes: room.slot_minutes,
+      });
     } catch (e) {
       setErr(msg(e));
     }
@@ -189,12 +197,19 @@ export default function SubmitFlow({
       {stage === 'source' && (
         <div className="flex flex-col gap-2">
           <p className="text-sm text-ink/60">시간표를 어떻게 넣을까요?</p>
-          <Button variant="cta" onClick={() => setStage('upload')}>
+          <Button
+            variant="cta"
+            onClick={() => {
+              setMethod('image');
+              setStage('upload');
+            }}
+          >
             에타 스크린샷 올리기
           </Button>
           <Button
             variant="outline"
             onClick={() => {
+              setMethod('manual');
               setOcc(emptyOccupancy(room.day_count, slotCount));
               setStage('edit');
             }}

@@ -15,6 +15,7 @@ import { Shake, useShake } from './ui/shake';
 import { createRoom } from '@/lib/supabase';
 import { setOwnerToken } from '@/lib/roomAuth';
 import { errMessage } from '@/lib/errors';
+import { track } from '@/lib/analytics';
 import { checkNickname } from '@/lib/nickname';
 
 interface Props {
@@ -99,6 +100,13 @@ export default function RoomCreate({ tour, onOpenTour, onCloseTour }: Props) {
         ownerPin: settings.ownerPinEnabled ? settings.ownerPin : null,
       });
       setOwnerToken(room.id, ownerToken);
+      track('room_created', {
+        day_count: dayCount,
+        slot_minutes: settings.slotMinutes,
+        weekend: settings.includeWeekend,
+        expected_size: settings.expectedSize,
+        owner_pin: settings.ownerPinEnabled,
+      });
       navigate(`/room/${room.id}?created=1`);
     } catch (e) {
       setError(errMessage(e, '방을 만들지 못했어요.'));

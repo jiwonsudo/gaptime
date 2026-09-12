@@ -5,6 +5,7 @@ import { combineSubmissions, teamSize, nameColor } from '@/lib/overlap';
 import { buildExportText } from '@/lib/exportText';
 import { formatSlot } from '@/lib/timeFormat';
 import { Button } from './ui/button';
+import { track } from '@/lib/analytics';
 
 interface Props {
   dayCount: number;
@@ -59,6 +60,7 @@ export default function ResultGrid({
     } catch {
       window.prompt('복사할 내용', text);
     }
+    track('export_copied');
   }
 
   return (

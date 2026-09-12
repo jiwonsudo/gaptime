@@ -59,8 +59,10 @@ export default function PrivacyPolicy() {
             <h2 className="mb-1 font-bold text-ink">5. 제3자 제공 및 처리 위탁</h2>
             <p>
               데이터는 데이터베이스 호스팅(Supabase) 및 정적 호스팅(Vercel) 서비스에 저장·전송됩니다.
-              광고가 게재되는 경우 광고 제공사(예: Google AdSense)가 쿠키를 통해 비개인화/개인화
-              광고를 제공할 수 있습니다.
+              서비스 개선을 위해 Google Analytics(GA4)로 방문 페이지·클릭 등 익명 이용 통계를
+              수집합니다 — 닉네임, 시간표 내용 등 개인 식별 정보는 포함하지 않으며 IP는
+              비식별화(anonymize_ip)됩니다. 광고가 게재되는 경우 광고 제공사(예: Google
+              AdSense)가 쿠키를 통해 비개인화/개인화 광고를 제공할 수 있습니다.
             </p>
           </section>
 

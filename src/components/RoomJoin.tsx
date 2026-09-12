@@ -4,6 +4,7 @@ import type { Room, Submission } from '@/types';
 import { getRoom, getSubmissions, subscribeRoom, verifyOwner } from '@/lib/supabase';
 import { getOwnerToken } from '@/lib/roomAuth';
 import { errMessage } from '@/lib/errors';
+import { track } from '@/lib/analytics';
 import { roomSlotCount } from '@/lib/occupancy';
 import ResultGrid from './ResultGrid';
 import ShareCard from './ShareCard';
@@ -194,7 +195,12 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
             submissions={submissions}
             expectedSize={room.expected_size}
             selectedSlug={focusSlug}
-            onSelect={(s) => setFocusSlug((cur) => (cur === s ? null : s))}
+            onSelect={(s) =>
+              setFocusSlug((cur) => {
+                if (cur !== s) track('focus_participant');
+                return cur === s ? null : s;
+              })
+            }
           />
         </div>
 

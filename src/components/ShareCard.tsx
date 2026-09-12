@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Button } from './ui/button';
+import { track } from '@/lib/analytics';
 
 interface Props {
   url: string;
@@ -64,6 +65,7 @@ export default function ShareCard({
           onClick={async () => {
             await copyText(url);
             flashLink();
+            track('share_copy', { type: 'link' });
           }}
           className="flex flex-col gap-1 rounded-md bg-ink/5 px-3 py-2 text-left transition-colors hover:bg-ink/10"
         >
@@ -78,14 +80,23 @@ export default function ShareCard({
               size="sm"
               variant="outline"
               className="flex-1"
-              onClick={() =>
-                navigator.share({ title: 'everyFreeTime', text: shareText, url }).catch(() => {})
-              }
+              onClick={() => {
+                track('share_copy', { type: 'native' });
+                navigator.share({ title: 'everyFreeTime', text: shareText, url }).catch(() => {});
+              }}
             >
               공유하기
             </Button>
           )}
-          <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowQr((v) => !v)}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              if (!showQr) track('share_copy', { type: 'qr' });
+              setShowQr((v) => !v);
+            }}
+          >
             {showQr ? 'QR 숨기기' : 'QR 코드'}
           </Button>
         </div>
@@ -99,6 +110,7 @@ export default function ShareCard({
             onClick={async () => {
               await copyText(code);
               flashCode();
+              track('share_copy', { type: 'code' });
             }}
             className="tnum flex items-center justify-between rounded-md bg-ink/5 px-3 py-2 text-left text-xl font-extrabold tracking-widest transition-colors hover:bg-ink/10"
           >

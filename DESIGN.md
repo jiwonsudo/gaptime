@@ -238,3 +238,14 @@ CLAUDE.md에서 스트레치/비목표였지만 배포를 위해 앞당김:
 - **공유 버튼**(Web Share API): `text` 에 "○○님이 '방이름' 폼을 만들었어요. 에타 시간표
   스크린샷으로 간편하게 일정을 알려주세요." + url. 카톡 등에서 이 문구가 메시지 본문으로 들어감.
 - og.png 는 `public/og.svg` 를 sharp 로 래스터화한 것 (빌드타임 산출물, 커밋함).
+
+## 13. 분석 (GA4)
+
+- `lib/analytics.ts` — `VITE_GA_ID` 없으면 완전 no-op(로컬 기본값). 있으면 gtag 지연 로드,
+  `anonymize_ip`, SPA라 `send_page_view:false` + 라우트 변경 시 수동 `page_view`
+  (`App`의 `RouteTracker`).
+- 이벤트: `room_created`(요일수·슬롯·주말·PIN 여부), `submission_created`/`submission_edited`
+  (`method`: image/manual), `share_copy`(`type`: link/code/qr/native), `export_copied`,
+  `focus_participant`, `tutorial_opened`/`tutorial_completed`.
+- 개인 식별 정보(닉네임, occupancy 등)는 이벤트 파라미터에 절대 안 실음.
+- 개인정보처리방침 §5 에 고지.
