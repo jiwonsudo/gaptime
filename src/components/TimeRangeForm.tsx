@@ -54,9 +54,9 @@ export default function TimeRangeForm({ value, onChange }: Props) {
       </label>
 
       <label className="flex flex-col gap-1 text-sm font-semibold">
-        내 이름 <span className="font-normal text-ink/40">(방장)</span>
+        내 이름
         <Input
-          placeholder="예: 지원"
+          placeholder="예: 김프리"
           maxLength={20}
           value={value.hostName}
           onChange={(e) => set('hostName', e.target.value)}
@@ -69,10 +69,6 @@ export default function TimeRangeForm({ value, onChange }: Props) {
       <div data-tour="advanced-settings">
         <Collapsible title="세부 설정 (시간대·인원·PIN)">
           <div className="flex flex-col gap-4">
-            <p className="text-xs text-ink/40">
-              기본값 그대로 만들어도 돼요. 제출 전이면 방장 관리에서 나중에 바꿀 수 있어요.
-            </p>
-
             <Checkbox
               label="토·일 포함"
               checked={value.includeWeekend}

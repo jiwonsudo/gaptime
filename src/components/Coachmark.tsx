@@ -4,6 +4,7 @@ export interface TourStep {
   selector: string; // 가리킬 요소 (없으면 이 단계는 건너뜀)
   title: string;
   body: string;
+  autoExpand?: boolean; // 대상이 접힌 Collapsible 이면 자동으로 펼치고 보여줌
 }
 
 interface Props {
@@ -53,13 +54,29 @@ export default function Coachmark({ steps, run, onClose }: Props) {
     setRect(el.getBoundingClientRect());
   }, [run, steps, i, resolveIndex, onClose]);
 
-  // 대상 요소를 화면 중앙 근처로 스크롤한 뒤 측정
+  // 대상이 접힌 Collapsible 이면 펼친 뒤(내용이 보이게) 스크롤·측정
   useLayoutEffect(() => {
     if (!run) return;
-    const el = document.querySelector(steps[i]?.selector ?? '') as HTMLElement | null;
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    const t = setTimeout(measure, 280);
-    return () => clearTimeout(t);
+    const step = steps[i];
+    const el = document.querySelector(step?.selector ?? '') as HTMLElement | null;
+    let expandDelay = 0;
+    if (step?.autoExpand && el) {
+      const toggle = (
+        el.matches('[aria-expanded]') ? el : el.querySelector('[aria-expanded]')
+      ) as HTMLElement | null;
+      if (toggle?.getAttribute('aria-expanded') === 'false') {
+        toggle.click();
+        expandDelay = 150;
+      }
+    }
+    const t1 = setTimeout(() => {
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, expandDelay);
+    const t2 = setTimeout(measure, expandDelay + 280);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, [run, i, steps, measure]);
 
   useEffect(() => {
