@@ -66,8 +66,33 @@ export default function TimeRangeForm({ value, onChange }: Props) {
         </span>
       </label>
 
+      {/* 방장 PIN 은 방을 만들 때만 걸 수 있고 나중에 추가할 수 없다.
+          접어두면 모르고 지나치기 쉬워서 밖에 둔다. */}
+      <div className="flex flex-col gap-2" data-tour="owner-pin">
+        <Checkbox
+          label="방장 PIN 설정"
+          checked={value.ownerPinEnabled}
+          onChange={(e) => onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })}
+        />
+        {value.ownerPinEnabled ? (
+          <Input
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={4}
+            placeholder="숫자 4자리"
+            value={value.ownerPin}
+            onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
+          />
+        ) : (
+          <span className="text-xs text-ink/40">
+            다른 기기나 브라우저에서 방을 관리(마감·인원 변경·삭제)하려면 필요해요. 방 만든 뒤에는
+            추가할 수 없어요.
+          </span>
+        )}
+      </div>
+
       <div data-tour="advanced-settings">
-        <Collapsible title="세부 설정 (시간대·인원·PIN)">
+        <Collapsible title="세부 설정 (시간대·인원)">
           <div className="flex flex-col gap-4">
             <Checkbox
               label="토·일 포함"
@@ -129,25 +154,6 @@ export default function TimeRangeForm({ value, onChange }: Props) {
               />
             </label>
 
-            <div className="flex flex-col gap-2">
-              <Checkbox
-                label="방장 PIN 설정 (다른 기기에서 방 관리할 때)"
-                checked={value.ownerPinEnabled}
-                onChange={(e) =>
-                  onChange({ ...value, ownerPinEnabled: e.target.checked, ownerPin: '' })
-                }
-              />
-              {value.ownerPinEnabled && (
-                <Input
-                  inputMode="numeric"
-                  autoComplete="off"
-                  maxLength={4}
-                  placeholder="숫자 4자리"
-                  value={value.ownerPin}
-                  onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
-                />
-              )}
-            </div>
           </div>
         </Collapsible>
       </div>
