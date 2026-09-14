@@ -56,10 +56,6 @@ export default function SubmitFlow({
   const [autoDetected, setAutoDetected] = useState<Occupancy | null>(null);
   const [feedbackGiven, setFeedbackGiven] = useState(false);
   const [hasPin, setHasPin] = useState(false);
-  // 다른 기기에서 수정하면 서버의 editor_token 이 회전돼 이 기기 토큰이 무효가 된다.
-  // 그때 PIN 을 다시 받아 권한을 되찾고 하던 동작을 이어서 하기 위한 상태.
-  const [pendingAuth, setPendingAuth] = useState<null | 'save' | 'delete'>(null);
-  const [authPin, setAuthPin] = useState('');
 
   // 개인 링크(/room/:id/:slug)로 들어온 경우: 이름으로 다시 찾는 화면을 바로 띄운다.
   // 제출자 신원은 브라우저에 저장하지 않으므로 항상 이름(+PIN)으로 본인 확인을 거친다.
@@ -85,8 +81,6 @@ export default function SubmitFlow({
     setAutoDetected(null);
     setFeedbackGiven(false);
     setHasPin(false);
-    setPendingAuth(null);
-    setAuthPin('');
   }
 
   // "내 시간표 올리기" — 방장은 이름을 이미 알므로 닉네임 단계를 건너뛴다
@@ -115,8 +109,6 @@ export default function SubmitFlow({
     setAutoDetected(null);
     setFeedbackGiven(false);
     setHasPin(false);
-    setPendingAuth(null);
-    setAuthPin('');
     setStage('nickname');
   }
 
@@ -150,8 +142,6 @@ export default function SubmitFlow({
       slug,
       occupancy: occ,
       editorToken: token,
-      // 토큰이 유효하면 서버가 PIN은 무시한다. 토큰이 낡았을 때만 이게 본인 확인 수단이 된다.
-      pin: isValidPin(authPin) ? authPin : null,
       setPin,
     });
     setEditorToken(next);
@@ -174,21 +164,15 @@ export default function SubmitFlow({
     onChanged();
   }
 
-  // 토큰이 낡았을 때: PIN 이 걸린 제출이면 PIN 이 있어야 하고(없으면 → pendingAuth 로 요청),
-  // PIN 이 없는 제출이면 닉네임만으로 권한을 되찾을 수 있으니 조용히 이어서 진행한다.
+  // 토큰이 낡았을 때(다른 기기에서 먼저 수정). PIN 은 어디에도 들고 있지 않으므로
+  // PIN 이 걸린 제출이면 이름+PIN 화면으로 다시 보내고, PIN 이 없으면 이름만으로 이어간다.
   async function recoverAndRetry(action: 'save' | 'delete') {
     const needsPin = await editorHasPin(room.id, slug);
     setHasPin(!!needsPin);
     if (needsPin) {
-      // 편집 화면 PIN 칸에 이미 입력해둔 게 있으면 그걸로 바로 권한을 되찾는다
-      if (isValidPin(authPin)) {
-        const fresh = await claimEditor(room.id, slug, authPin);
-        setEditorToken(fresh);
-        if (action === 'save') await saveWith(fresh);
-        else await deleteWith(fresh);
-        return;
-      }
-      setPendingAuth(action);
+      setEditorToken(null);
+      setStage('reclaim');
+      setErr('다른 기기에서 수정된 것 같아요. 이름과 PIN을 다시 입력해주세요.');
       return;
     }
     const fresh = await claimEditor(room.id, slug, null);
@@ -212,23 +196,6 @@ export default function SubmitFlow({
           return;
         }
       }
-      setErr(msg(e));
-    }
-  }
-
-  // PIN 을 받아 권한을 되찾고, 막혔던 저장/삭제를 이어서 수행
-  async function confirmAuthPin() {
-    if (!pendingAuth || !isValidPin(authPin)) return;
-    setErr(null);
-    const action = pendingAuth;
-    try {
-      const fresh = await claimEditor(room.id, slug, authPin);
-      setEditorToken(fresh);
-      setPendingAuth(null);
-      setAuthPin('');
-      if (action === 'save') await saveWith(fresh);
-      else await deleteWith(fresh);
-    } catch (e) {
       setErr(msg(e));
     }
   }
@@ -280,11 +247,11 @@ export default function SubmitFlow({
           </Button>
           {presetNickname && (
             <Button variant="outline" size="sm" onClick={startForOther}>
-              다른 사람 대신 올리기
+              다른 이름으로 시간표 올리기
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => setStage('reclaim')}>
-            이미 올린 시간표 수정하기
+            올린 시간표 수정 · 삭제하기
           </Button>
         </div>
       )}
@@ -394,90 +361,32 @@ export default function SubmitFlow({
             slotMinutes={room.slot_minutes}
             onChange={setOcc}
           />
-          {/* PIN 을 걸어둔 제출일 때만. 토큰이 아직 살아 있으면 서버가 PIN 을 무시한다. */}
-          {editorToken && hasPin && !pendingAuth && (
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              PIN
-              <Input
-                inputMode="numeric"
-                autoComplete="off"
-                maxLength={4}
-                placeholder="숫자 4자리"
-                value={authPin}
-                onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              />
-            </label>
-          )}
-          {pendingAuth ? (
-            <div className="flex flex-col gap-2 rounded-md border border-cta/30 bg-cta/5 p-3">
-              <p className="text-xs leading-relaxed text-ink/70">
-                다른 기기에서 수정한 적이 있어 이 기기의 확인이 풀렸어요. 설정해둔 PIN 4자리를
-                입력하면 {pendingAuth === 'delete' ? '삭제' : '저장'}를 이어서 할게요.
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  inputMode="numeric"
-                  autoComplete="off"
-                  maxLength={4}
-                  autoFocus
-                  placeholder="PIN 4자리"
-                  value={authPin}
-                  onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  onKeyDown={(e) => e.key === 'Enter' && confirmAuthPin()}
-                />
-                <Button variant="cta" disabled={!isValidPin(authPin)} onClick={confirmAuthPin}>
-                  확인
+          <div className="flex gap-2">
+            <Button variant="cta" className="flex-1" onClick={doSubmit}>
+              {editorToken ? '수정 저장' : '제출'}
+            </Button>
+            {editorToken && (
+              <>
+                <Button variant="outline" onClick={() => setConfirmDel(true)}>
+                  삭제
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setPendingAuth(null);
-                    setAuthPin('');
-                  }}
-                >
-                  취소
+                <Button variant="ghost" onClick={reset}>
+                  닫기
                 </Button>
-              </div>
-              <button
-                className="self-start text-xs text-ink/50 underline"
-                onClick={() => {
-                  setPendingAuth(null);
-                  setAuthPin('');
-                  setEditorToken(null);
-                  setStage('reclaim');
-                }}
-              >
-                PIN이 기억나지 않아요
-              </button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              <Button variant="cta" className="flex-1" onClick={doSubmit}>
-                {editorToken ? '수정 저장' : '제출'}
+              </>
+            )}
+            {!editorToken && (
+              <Button variant="ghost" onClick={() => setStage('source')}>
+                뒤로
               </Button>
-              {editorToken && (
-                <>
-                  <Button variant="outline" onClick={() => setConfirmDel(true)}>
-                    삭제
-                  </Button>
-                  <Button variant="ghost" onClick={reset}>
-                    닫기
-                  </Button>
-                </>
-              )}
-              {!editorToken && (
-                <Button variant="ghost" onClick={() => setStage('source')}>
-                  뒤로
-                </Button>
-              )}
-            </div>
-          )}
+            )}
+          </div>
           {editorToken && (
             <button
               className="self-start text-xs text-ink/50 underline"
               onClick={startForOther}
             >
-              다른 사람 시간표 올리기
+              다른 이름으로 시간표 올리기
             </button>
           )}
         </>
@@ -497,8 +406,7 @@ export default function SubmitFlow({
                   : emptyOccupancy(room.day_count, slotCount)
             );
             setEditorToken(token);
-            setHasPin(!!pin);
-            setAuthPin(pin ?? '');
+            setHasPin(!!pin); // PIN 자체는 들고 있지 않는다 — 걸려 있었다는 사실만
             setStage('edit');
           }}
         />
@@ -532,7 +440,7 @@ export default function SubmitFlow({
             <p className="text-xs text-ink/40">의견 고마워요, 인식 정확도 개선에 참고할게요.</p>
           )}
           <p className="rounded-md bg-ink/5 px-3 py-2 text-xs leading-relaxed text-ink/60">
-            나중에 고치려면 방 페이지에서 "이미 올린 시간표 수정하기" → 이름({displayName})
+            나중에 고치려면 방 페이지에서 "올린 시간표 수정 · 삭제하기" → 이름({displayName})
             {hasPin ? '과 PIN을 입력하면 돼요.' : '만 입력하면 돼요.'}
           </p>
           <div className="flex gap-2">
@@ -540,7 +448,7 @@ export default function SubmitFlow({
               수정 또는 삭제
             </Button>
             <Button variant="ghost" size="sm" onClick={startForOther}>
-              다른 사람 올리기
+              다른 이름으로 시간표 올리기
             </Button>
           </div>
         </div>

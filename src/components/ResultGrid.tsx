@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Submission } from '@/types';
 import { DAY_LABELS } from '@/types';
 import { combineSubmissions, teamSize, nameColor } from '@/lib/overlap';
-import { buildExportText } from '@/lib/exportText';
+import { buildExportText, buildRuns, runCountLabel, runLabel } from '@/lib/exportText';
 import { formatSlot } from '@/lib/timeFormat';
 import { Button } from './ui/button';
 import { track } from '@/lib/analytics';
@@ -19,6 +19,7 @@ interface Props {
 }
 
 const MAX_HOVER_NAMES = 8;
+const PER_PAGE = 5;
 
 export default function ResultGrid({
   dayCount,
@@ -35,8 +36,12 @@ export default function ResultGrid({
     [submissions, dayCount, slotCount]
   );
   const team = teamSize(expectedSize, submissions.length);
+  const allNames = useMemo(() => submissions.map((s) => s.display_name), [submissions]);
+  const runs = useMemo(() => buildRuns(grid, allNames), [grid, allNames]);
   const [hover, setHover] = useState<{ d: number; s: number } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showRanking, setShowRanking] = useState(false);
+  const [page, setPage] = useState(0);
   const hasData = submissions.length > 0;
   const perHour = 60 / slotMinutes;
   const rowH = slotMinutes === 30 ? 'h-5' : 'h-8';
@@ -52,7 +57,7 @@ export default function ResultGrid({
   }
 
   async function copyExport() {
-    const text = buildExportText(grid, team, startHour, slotMinutes);
+    const text = buildExportText(grid, team, startHour, slotMinutes, allNames);
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
@@ -162,13 +167,102 @@ export default function ResultGrid({
           <p className="text-sm text-ink/50">아직 아무도 시간표를 올리지 않았어요.</p>
         )
       ) : focus ? null : (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={copyExport}>
-            {copied ? '복사됐어요' : '문자로 복사하기'}
-          </Button>
-          <span className="tnum text-xs text-ink/50">
-            지금까지 {submissions.length}명 올림 · {team}명 기준
-          </span>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              aria-expanded={showRanking}
+              onClick={() => {
+                setPage(0);
+                setShowRanking((v) => !v);
+                if (!showRanking) track('ranking_opened');
+              }}
+            >
+              {showRanking ? '우선순위 접기' : '가능한 시간 우선순위'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={copyExport}>
+              {copied ? '복사됐어요' : '문자로 복사하기'}
+            </Button>
+            <span className="tnum text-xs text-ink/50">
+              지금까지 {submissions.length}명 올림 · {team}명 기준
+            </span>
+          </div>
+
+          {showRanking &&
+            (runs.length === 0 ? (
+              <p className="text-sm text-ink/50">아직 겹치는 시간이 없어요.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <ol className="flex flex-col gap-1.5">
+                  {runs.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE).map((r, i) => (
+                    <li
+                      key={`${r.day}-${r.fromSlot}`}
+                      className="flex gap-2 border-t border-ink/10 pt-2 text-sm first:border-t-0 first:pt-0"
+                    >
+                      <span className="tnum w-5 shrink-0 pt-0.5 text-xs font-bold text-ink/40">
+                        {page * PER_PAGE + i + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-x-2">
+                          <b>{runLabel(r, startHour, slotMinutes)}</b>
+                          <span
+                            className={`tnum text-xs font-bold ${
+                              r.count >= team ? 'text-free' : 'text-ink/50'
+                            }`}
+                          >
+                            {runCountLabel(r, team)}
+                          </span>
+                        </div>
+                        {r.busyNames.length > 0 && (
+                          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink/50">
+                            <span>안 되는 사람</span>
+                            {r.busyNames.slice(0, MAX_HOVER_NAMES).map((n) => (
+                              <span key={n} className="flex items-center gap-1">
+                                <span
+                                  className="inline-block h-2 w-2 rounded-full"
+                                  style={{ background: nameColor(n) }}
+                                />
+                                {n}
+                              </span>
+                            ))}
+                            {r.busyNames.length > MAX_HOVER_NAMES && (
+                              <span>외 {r.busyNames.length - MAX_HOVER_NAMES}명</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+
+                {runs.length > PER_PAGE && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={page === 0}
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    >
+                      이전
+                    </Button>
+                    <span className="tnum text-ink/50">
+                      {page + 1} / {Math.ceil(runs.length / PER_PAGE)}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={page >= Math.ceil(runs.length / PER_PAGE) - 1}
+                      onClick={() =>
+                        setPage((p) => Math.min(Math.ceil(runs.length / PER_PAGE) - 1, p + 1))
+                      }
+                    >
+                      다음
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
         </div>
       )}
     </div>
