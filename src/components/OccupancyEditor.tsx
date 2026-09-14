@@ -42,7 +42,16 @@ export default function OccupancyEditor({
         className="grid touch-none select-none"
         style={{ gridTemplateColumns: `2.75rem repeat(${dayCount}, 1fr)` }}
         onPointerUp={() => (painting.current = null)}
-        onPointerLeave={() => (painting.current = null)}
+        onPointerCancel={() => (painting.current = null)}
+        onPointerMove={(e) => {
+          // 터치는 pointerdown 시점의 요소에 암묵적으로 캡처되어 pointerenter가
+          // 다른 칸으로 넘어가지 않는다 — elementFromPoint로 직접 위치를 찾는다.
+          if (!painting.current) return;
+          const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+          const cell = el?.closest<HTMLElement>('[data-d]');
+          if (!cell) return;
+          setCell(Number(cell.dataset.d), Number(cell.dataset.s), painting.current.to);
+        }}
       >
         <div />
         {DAY_LABELS.slice(0, dayCount).map((d) => (
@@ -66,6 +75,8 @@ export default function OccupancyEditor({
                   key={d}
                   type="button"
                   aria-pressed={busy}
+                  data-d={d}
+                  data-s={s}
                   className={`${rowH} border-x border-white/70 transition-colors ${
                     hourStart ? 'border-t border-t-white/70' : 'border-t border-t-white/30'
                   } ${busy ? 'bg-cta/35' : 'bg-free/25'}`}
@@ -74,9 +85,6 @@ export default function OccupancyEditor({
                     const to = !busy;
                     painting.current = { to };
                     setCell(d, s, to);
-                  }}
-                  onPointerEnter={() => {
-                    if (painting.current) setCell(d, s, painting.current.to);
                   }}
                 />
               );

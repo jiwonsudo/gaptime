@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Occupancy, Room, Submission } from '@/types';
 import { imageToImageData } from '@/lib/imageData';
 import { computeOccupancy } from '@/lib/gridSampler';
@@ -69,11 +69,17 @@ export default function SubmitFlow({
   // 같은 기기에 저장된 내 제출 → 바로 수정 진입
   const local = useMemo(() => getLocalEditor(room.id), [room.id]);
 
+  // 편집을 시작한 target당 한 번만 occ를 초기화 — submissions가 실시간으로
+  // 갱신될 때마다(다른 사람이 제출) 재실행되면 편집 중인 내용을 서버 값으로 덮어써버리는 걸 방지
+  const initializedTargetRef = useRef<string | null>(null);
   useEffect(() => {
     const target = editTarget ?? (local ? { slug: local.slug, token: local.token } : null);
     if (!target) return;
+    const key = `${target.slug}|${target.token ?? ''}`;
+    if (initializedTargetRef.current === key) return;
     const sub = submissions.find((s) => s.slug === target.slug);
     if (!sub) return;
+    initializedTargetRef.current = key;
     setDisplayName(sub.display_name);
     setSlug(sub.slug);
     setOcc(resizeOccupancy(sub.occupancy, room.day_count, slotCount));
@@ -83,8 +89,7 @@ export default function SubmitFlow({
     } else {
       setStage('reclaim');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editTarget, submissions.length]);
+  }, [editTarget, submissions, local, room.day_count, slotCount]);
 
   function reset() {
     setStage('menu');
