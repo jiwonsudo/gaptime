@@ -68,7 +68,10 @@ export default function TimeRangeForm({ value, onChange }: Props) {
 
       {/* 방장 PIN 은 방을 만들 때만 걸 수 있고 나중에 추가할 수 없다.
           접어두면 모르고 지나치기 쉬워서 밖에 둔다. */}
-      <div className="flex flex-col gap-2" data-tour="owner-pin">
+      <div
+        className="flex flex-col gap-2 rounded-md border border-cta/30 bg-cta/5 p-3"
+        data-tour="owner-pin"
+      >
         <Checkbox
           label="방장 PIN 설정"
           checked={value.ownerPinEnabled}
@@ -84,9 +87,9 @@ export default function TimeRangeForm({ value, onChange }: Props) {
             onChange={(e) => set('ownerPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
           />
         ) : (
-          <span className="text-xs text-ink/40">
-            다른 기기나 브라우저에서 방을 관리(마감·인원 변경·삭제)하려면 필요해요. 방 만든 뒤에는
-            추가할 수 없어요.
+          <span className="text-xs leading-relaxed text-ink/60">
+            다른 기기나 브라우저에서 방을 관리(마감·인원 변경·삭제)하려면 필요해요.{' '}
+            <b>방 만든 뒤에는 추가할 수 없어요.</b>
           </span>
         )}
       </div>
