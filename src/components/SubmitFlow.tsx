@@ -36,7 +36,18 @@ interface Props {
   onChanged: () => void;
 }
 
-type Stage = 'menu' | 'nickname' | 'source' | 'upload' | 'calibrate' | 'edit' | 'reclaim' | 'done';
+// 'collapsed': 이미 올린 내 시간표가 있는 상태로 방에 다시 들어왔을 때의 접힌 화면.
+// 수정/삭제를 누르면 'edit' 로 펼친다.
+type Stage =
+  | 'menu'
+  | 'nickname'
+  | 'source'
+  | 'upload'
+  | 'calibrate'
+  | 'collapsed'
+  | 'edit'
+  | 'reclaim'
+  | 'done';
 
 export default function SubmitFlow({
   room,
@@ -89,8 +100,8 @@ export default function SubmitFlow({
     setOcc(resizeOccupancy(sub.occupancy, room.day_count, slotCount));
     if (target.token) {
       setEditorToken(target.token);
-      setStage('edit');
-      // 이 제출에 PIN이 걸려 있으면 편집 화면에 PIN 칸을 띄워야 한다
+      setStage('collapsed');
+      // 펼쳤을 때 PIN 칸을 띄울지 미리 정해둔다
       // (다른 기기에서 수정했으면 이 기기 토큰이 이미 무효일 수 있음)
       editorHasPin(room.id, sub.slug)
         .then((v) => setHasPin(!!v))
@@ -446,6 +457,20 @@ export default function SubmitFlow({
         />
       )}
 
+      {stage === 'collapsed' && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-ink/60">
+            {displayName ? `${displayName}님 시간표가 올라가 있어요.` : '시간표가 올라가 있어요.'}
+          </p>
+          <Button variant="outline" size="sm" onClick={() => setStage('edit')}>
+            수정 또는 삭제
+          </Button>
+          <Button variant="ghost" size="sm" onClick={startForOther}>
+            다른 사람 시간표 올리기
+          </Button>
+        </div>
+      )}
+
       {stage === 'edit' && (
         <>
           <OccupancyEditor
@@ -525,9 +550,21 @@ export default function SubmitFlow({
                 {editorToken ? '수정 저장' : '제출'}
               </Button>
               {editorToken && (
-                <Button variant="outline" onClick={() => setConfirmDel(true)}>
-                  삭제
-                </Button>
+                <>
+                  <Button variant="outline" onClick={() => setConfirmDel(true)}>
+                    삭제
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setAuthPin('');
+                      setErr(null);
+                      setStage('collapsed');
+                    }}
+                  >
+                    닫기
+                  </Button>
+                </>
               )}
               {!editorToken && (
                 <Button variant="ghost" onClick={() => setStage('source')}>
