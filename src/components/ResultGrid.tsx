@@ -171,7 +171,7 @@ export default function ResultGrid({
           <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
-              variant="outline"
+              variant="accent"
               aria-expanded={showRanking}
               onClick={() => {
                 setPage(0);
@@ -179,7 +179,7 @@ export default function ResultGrid({
                 if (!showRanking) track('ranking_opened');
               }}
             >
-              {showRanking ? '우선순위 접기' : '가능한 시간 우선순위'}
+              {showRanking ? '우선순위 접기' : '가능한 시간 우선순위 보기'}
             </Button>
             <Button size="sm" variant="outline" onClick={copyExport}>
               {copied ? '복사됐어요' : '문자로 복사하기'}

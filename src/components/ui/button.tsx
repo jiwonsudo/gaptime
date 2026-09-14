@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 
-type Variant = 'primary' | 'cta' | 'ghost' | 'outline';
+type Variant = 'primary' | 'cta' | 'ghost' | 'outline' | 'accent';
 type Size = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -14,6 +14,8 @@ const variants: Record<Variant, string> = {
   cta: 'bg-cta text-white hover:opacity-90',
   ghost: 'bg-transparent hover:bg-black/5',
   outline: 'border border-ink/20 bg-transparent hover:bg-black/5',
+  // outline 과 나란히 놓았을 때 먼저 눈에 들어오도록 살짝 강조 (그린 = 가능한 시간)
+  accent: 'border border-free/60 bg-free/15 hover:bg-free/25',
 };
 
 const sizes: Record<Size, string> = {
