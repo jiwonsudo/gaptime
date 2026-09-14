@@ -65,6 +65,10 @@ export default function SubmitFlow({
   const [hasPin, setHasPin] = useState(false);
   const [addingPin, setAddingPin] = useState(false);
   const [pinInput, setPinInput] = useState('');
+  // 다른 기기에서 수정하면 서버의 editor_token 이 회전돼 이 기기 토큰이 무효가 된다.
+  // 그때 PIN 을 다시 받아 권한을 되찾고 하던 동작을 이어서 하기 위한 상태.
+  const [pendingAuth, setPendingAuth] = useState<null | 'save' | 'delete'>(null);
+  const [authPin, setAuthPin] = useState('');
 
   // 같은 기기에 저장된 내 제출 → 바로 수정 진입
   const local = useMemo(() => getLocalEditor(room.id), [room.id]);
@@ -106,6 +110,8 @@ export default function SubmitFlow({
     setHasPin(false);
     setAddingPin(false);
     setPinInput('');
+    setPendingAuth(null);
+    setAuthPin('');
   }
 
   // "내 시간표 올리기" — 방장은 이름을 이미 알므로 닉네임 단계를 건너뛴다
@@ -136,6 +142,8 @@ export default function SubmitFlow({
     setHasPin(false);
     setAddingPin(false);
     setPinInput('');
+    setPendingAuth(null);
+    setAuthPin('');
     setStage('nickname');
   }
 
@@ -153,35 +161,95 @@ export default function SubmitFlow({
     return total > 0 ? Math.round((changed / total) * 100) : 0;
   }
 
+  // 서버가 "이 토큰으론 본인 확인이 안 된다"고 답한 경우.
+  // 다른 기기(또는 개인 링크)에서 수정하면 editor_token 이 회전하므로 이 기기 토큰이 낡는다.
+  function isStaleTokenError(e: unknown): boolean {
+    const m = errMessage(e, '');
+    return m.includes('PIN이 맞지 않습니다') || m.includes('본인 확인이 안 됩니다');
+  }
+
+  async function saveWith(token: string | null) {
+    const isNew = !token;
+    const diffPercent = scanDiffPercent();
+    const next = await submitOccupancy({
+      roomId: room.id,
+      displayName,
+      slug,
+      occupancy: occ,
+      editorToken: token,
+      setPin,
+    });
+    setEditorToken(next);
+    setLocalEditor(room.id, { slug, token: next });
+    setPersonalUrl(`${window.location.origin}/room/${room.id}/${encodeURIComponent(slug)}`);
+    setStage('done');
+    onChanged();
+    editorHasPin(room.id, slug)
+      .then((v) => setHasPin(!!v))
+      .catch(() => setHasPin(!!setPin));
+    track(isNew ? 'submission_created' : 'submission_edited', {
+      method: method ?? 'unknown',
+      day_count: room.day_count,
+      slot_minutes: room.slot_minutes,
+      ...(diffPercent !== null ? { scan_diff_percent: diffPercent } : {}),
+    });
+  }
+
+  async function deleteWith(token: string) {
+    await deleteOwnSubmission(room.id, slug, token);
+    clearLocalEditor(room.id);
+    reset();
+    onChanged();
+  }
+
+  // 토큰이 낡았을 때: PIN 이 걸린 제출이면 PIN 을 받아야 하고(→ pendingAuth),
+  // PIN 이 없는 제출이면 닉네임만으로 권한을 되찾을 수 있으니 조용히 이어서 진행한다.
+  async function recoverAndRetry(action: 'save' | 'delete') {
+    const needsPin = await editorHasPin(room.id, slug);
+    if (needsPin) {
+      setPendingAuth(action);
+      setAuthPin('');
+      return;
+    }
+    const fresh = await claimEditor(room.id, slug, null);
+    setEditorToken(fresh);
+    setLocalEditor(room.id, { slug, token: fresh });
+    if (action === 'save') await saveWith(fresh);
+    else await deleteWith(fresh);
+  }
+
   async function doSubmit() {
     setErr(null);
-    const isNew = !editorToken;
-    const diffPercent = scanDiffPercent();
     setStage('edit');
     try {
-      const token = await submitOccupancy({
-        roomId: room.id,
-        displayName,
-        slug,
-        occupancy: occ,
-        editorToken,
-        setPin,
-      });
-      setEditorToken(token);
-      setLocalEditor(room.id, { slug, token });
-      const url = `${window.location.origin}/room/${room.id}/${encodeURIComponent(slug)}`;
-      setPersonalUrl(url);
-      setStage('done');
-      onChanged();
-      editorHasPin(room.id, slug)
-        .then((v) => setHasPin(!!v))
-        .catch(() => setHasPin(!!setPin));
-      track(isNew ? 'submission_created' : 'submission_edited', {
-        method: method ?? 'unknown',
-        day_count: room.day_count,
-        slot_minutes: room.slot_minutes,
-        ...(diffPercent !== null ? { scan_diff_percent: diffPercent } : {}),
-      });
+      await saveWith(editorToken);
+    } catch (e) {
+      if (editorToken && isStaleTokenError(e)) {
+        try {
+          await recoverAndRetry('save');
+          return;
+        } catch (e2) {
+          setErr(msg(e2));
+          return;
+        }
+      }
+      setErr(msg(e));
+    }
+  }
+
+  // PIN 을 받아 권한을 되찾고, 막혔던 저장/삭제를 이어서 수행
+  async function confirmAuthPin() {
+    if (!pendingAuth || !isValidPin(authPin)) return;
+    setErr(null);
+    const action = pendingAuth;
+    try {
+      const fresh = await claimEditor(room.id, slug, authPin);
+      setEditorToken(fresh);
+      setLocalEditor(room.id, { slug, token: fresh });
+      setPendingAuth(null);
+      setAuthPin('');
+      if (action === 'save') await saveWith(fresh);
+      else await deleteWith(fresh);
     } catch (e) {
       setErr(msg(e));
     }
@@ -224,12 +292,19 @@ export default function SubmitFlow({
 
   async function doDelete() {
     if (!editorToken) return;
+    setErr(null);
     try {
-      await deleteOwnSubmission(room.id, slug, editorToken);
-      clearLocalEditor(room.id);
-      reset();
-      onChanged();
+      await deleteWith(editorToken);
     } catch (e) {
+      if (isStaleTokenError(e)) {
+        try {
+          await recoverAndRetry('delete');
+          return;
+        } catch (e2) {
+          setErr(msg(e2));
+          return;
+        }
+      }
       setErr(msg(e));
     }
   }
@@ -365,21 +440,66 @@ export default function SubmitFlow({
             slotMinutes={room.slot_minutes}
             onChange={setOcc}
           />
-          <div className="flex gap-2">
-            <Button variant="cta" className="flex-1" onClick={doSubmit}>
-              {editorToken ? '수정 저장' : '제출'}
-            </Button>
-            {editorToken && (
-              <Button variant="outline" onClick={() => setConfirmDel(true)}>
-                삭제
+          {pendingAuth ? (
+            <div className="flex flex-col gap-2 rounded-md border border-cta/30 bg-cta/5 p-3">
+              <p className="text-xs leading-relaxed text-ink/70">
+                다른 기기에서 수정한 적이 있어 이 기기의 확인이 풀렸어요. 설정해둔 PIN 4자리를
+                입력하면 {pendingAuth === 'delete' ? '삭제' : '저장'}를 이어서 할게요.
+              </p>
+              <div className="flex gap-2">
+                <Input
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={4}
+                  autoFocus
+                  placeholder="PIN 4자리"
+                  value={authPin}
+                  onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  onKeyDown={(e) => e.key === 'Enter' && confirmAuthPin()}
+                />
+                <Button variant="cta" disabled={!isValidPin(authPin)} onClick={confirmAuthPin}>
+                  확인
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setPendingAuth(null);
+                    setAuthPin('');
+                  }}
+                >
+                  취소
+                </Button>
+              </div>
+              <button
+                className="self-start text-xs text-ink/50 underline"
+                onClick={() => {
+                  setPendingAuth(null);
+                  setAuthPin('');
+                  setEditorToken(null);
+                  clearLocalEditor(room.id);
+                  setStage('reclaim');
+                }}
+              >
+                PIN이 기억나지 않아요
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button variant="cta" className="flex-1" onClick={doSubmit}>
+                {editorToken ? '수정 저장' : '제출'}
               </Button>
-            )}
-            {!editorToken && (
-              <Button variant="ghost" onClick={() => setStage('source')}>
-                뒤로
-              </Button>
-            )}
-          </div>
+              {editorToken && (
+                <Button variant="outline" onClick={() => setConfirmDel(true)}>
+                  삭제
+                </Button>
+              )}
+              {!editorToken && (
+                <Button variant="ghost" onClick={() => setStage('source')}>
+                  뒤로
+                </Button>
+              )}
+            </div>
+          )}
           {editorToken && (
             <button
               className="self-start text-xs text-ink/50 underline"
