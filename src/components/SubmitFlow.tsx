@@ -13,17 +13,11 @@ import {
   submitOccupancy,
   submitScanFeedback,
 } from '@/lib/supabase';
-import {
-  getLocalEditor,
-  setLocalEditor,
-  clearLocalEditor,
-} from '@/lib/roomAuth';
 import { checkNickname, isValidPin } from '@/lib/nickname';
 import ImageUploader from './ImageUploader';
 import GridCalibrator from './GridCalibrator';
 import OccupancyEditor from './OccupancyEditor';
 import NicknamePicker from './NicknamePicker';
-import ShareCard from './ShareCard';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ConfirmDialog } from './ui/confirm-dialog';
@@ -31,23 +25,12 @@ import { ConfirmDialog } from './ui/confirm-dialog';
 interface Props {
   room: Room;
   submissions: Submission[];
-  editTarget?: { slug: string; token: string | null } | null;
+  editTarget?: { slug: string } | null;
   presetNickname?: string | null; // 방장: 이름을 다시 묻지 않음
   onChanged: () => void;
 }
 
-// 'collapsed': 이미 올린 내 시간표가 있는 상태로 방에 다시 들어왔을 때의 접힌 화면.
-// 수정/삭제를 누르면 'edit' 로 펼친다.
-type Stage =
-  | 'menu'
-  | 'nickname'
-  | 'source'
-  | 'upload'
-  | 'calibrate'
-  | 'collapsed'
-  | 'edit'
-  | 'reclaim'
-  | 'done';
+type Stage = 'menu' | 'nickname' | 'source' | 'upload' | 'calibrate' | 'edit' | 'reclaim' | 'done';
 
 export default function SubmitFlow({
   room,
@@ -67,49 +50,27 @@ export default function SubmitFlow({
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [occ, setOcc] = useState<Occupancy>(() => emptyOccupancy(room.day_count, slotCount));
   const [err, setErr] = useState<string | null>(null);
-  const [personalUrl, setPersonalUrl] = useState('');
   const [confirmDel, setConfirmDel] = useState(false);
   const [method, setMethod] = useState<'image' | 'manual' | null>(null);
   // 자동 인식 직후 스냅샷(칩 편집으로 수정하기 전) — 만족도 계산용
   const [autoDetected, setAutoDetected] = useState<Occupancy | null>(null);
   const [feedbackGiven, setFeedbackGiven] = useState(false);
   const [hasPin, setHasPin] = useState(false);
-  const [addingPin, setAddingPin] = useState(false);
-  const [pinInput, setPinInput] = useState('');
   // 다른 기기에서 수정하면 서버의 editor_token 이 회전돼 이 기기 토큰이 무효가 된다.
   // 그때 PIN 을 다시 받아 권한을 되찾고 하던 동작을 이어서 하기 위한 상태.
   const [pendingAuth, setPendingAuth] = useState<null | 'save' | 'delete'>(null);
   const [authPin, setAuthPin] = useState('');
 
-  // 같은 기기에 저장된 내 제출 → 바로 수정 진입
-  const local = useMemo(() => getLocalEditor(room.id), [room.id]);
-
-  // 편집을 시작한 target당 한 번만 occ를 초기화 — submissions가 실시간으로
-  // 갱신될 때마다(다른 사람이 제출) 재실행되면 편집 중인 내용을 서버 값으로 덮어써버리는 걸 방지
+  // 개인 링크(/room/:id/:slug)로 들어온 경우: 이름으로 다시 찾는 화면을 바로 띄운다.
+  // 제출자 신원은 브라우저에 저장하지 않으므로 항상 이름(+PIN)으로 본인 확인을 거친다.
   const initializedTargetRef = useRef<string | null>(null);
   useEffect(() => {
-    const target = editTarget ?? (local ? { slug: local.slug, token: local.token } : null);
-    if (!target) return;
-    const key = `${target.slug}|${target.token ?? ''}`;
-    if (initializedTargetRef.current === key) return;
-    const sub = submissions.find((s) => s.slug === target.slug);
-    if (!sub) return;
-    initializedTargetRef.current = key;
-    setDisplayName(sub.display_name);
-    setSlug(sub.slug);
-    setOcc(resizeOccupancy(sub.occupancy, room.day_count, slotCount));
-    if (target.token) {
-      setEditorToken(target.token);
-      setStage('collapsed');
-      // 펼쳤을 때 PIN 칸을 띄울지 미리 정해둔다
-      // (다른 기기에서 수정했으면 이 기기 토큰이 이미 무효일 수 있음)
-      editorHasPin(room.id, sub.slug)
-        .then((v) => setHasPin(!!v))
-        .catch(() => setHasPin(false));
-    } else {
-      setStage('reclaim');
-    }
-  }, [editTarget, submissions, local, room.day_count, slotCount]);
+    if (!editTarget) return;
+    if (initializedTargetRef.current === editTarget.slug) return;
+    if (!submissions.some((s) => s.slug === editTarget.slug)) return;
+    initializedTargetRef.current = editTarget.slug;
+    setStage('reclaim');
+  }, [editTarget, submissions]);
 
   function reset() {
     setStage('menu');
@@ -124,8 +85,6 @@ export default function SubmitFlow({
     setAutoDetected(null);
     setFeedbackGiven(false);
     setHasPin(false);
-    setAddingPin(false);
-    setPinInput('');
     setPendingAuth(null);
     setAuthPin('');
   }
@@ -156,8 +115,6 @@ export default function SubmitFlow({
     setAutoDetected(null);
     setFeedbackGiven(false);
     setHasPin(false);
-    setAddingPin(false);
-    setPinInput('');
     setPendingAuth(null);
     setAuthPin('');
     setStage('nickname');
@@ -198,8 +155,6 @@ export default function SubmitFlow({
       setPin,
     });
     setEditorToken(next);
-    setLocalEditor(room.id, { slug, token: next });
-    setPersonalUrl(`${window.location.origin}/room/${room.id}/${encodeURIComponent(slug)}`);
     setStage('done');
     onChanged();
     editorHasPin(room.id, slug)
@@ -215,7 +170,6 @@ export default function SubmitFlow({
 
   async function deleteWith(token: string) {
     await deleteOwnSubmission(room.id, slug, token);
-    clearLocalEditor(room.id);
     reset();
     onChanged();
   }
@@ -230,7 +184,6 @@ export default function SubmitFlow({
       if (isValidPin(authPin)) {
         const fresh = await claimEditor(room.id, slug, authPin);
         setEditorToken(fresh);
-        setLocalEditor(room.id, { slug, token: fresh });
         if (action === 'save') await saveWith(fresh);
         else await deleteWith(fresh);
         return;
@@ -240,7 +193,6 @@ export default function SubmitFlow({
     }
     const fresh = await claimEditor(room.id, slug, null);
     setEditorToken(fresh);
-    setLocalEditor(room.id, { slug, token: fresh });
     if (action === 'save') await saveWith(fresh);
     else await deleteWith(fresh);
   }
@@ -272,35 +224,10 @@ export default function SubmitFlow({
     try {
       const fresh = await claimEditor(room.id, slug, authPin);
       setEditorToken(fresh);
-      setLocalEditor(room.id, { slug, token: fresh });
       setPendingAuth(null);
       setAuthPin('');
       if (action === 'save') await saveWith(fresh);
       else await deleteWith(fresh);
-    } catch (e) {
-      setErr(msg(e));
-    }
-  }
-
-  // 제출 완료 후 PIN을 뒤늦게 추가 — 같은 editorToken이 있으므로 기존 PIN 없이도 설정 가능
-  async function addPin() {
-    if (!editorToken || !isValidPin(pinInput)) return;
-    setErr(null);
-    try {
-      const token = await submitOccupancy({
-        roomId: room.id,
-        displayName,
-        slug,
-        occupancy: occ,
-        editorToken,
-        setPin: pinInput,
-      });
-      setEditorToken(token);
-      setLocalEditor(room.id, { slug, token });
-      setHasPin(true);
-      setAddingPin(false);
-      setPinInput('');
-      track('pin_added_after_submit');
     } catch (e) {
       setErr(msg(e));
     }
@@ -457,20 +384,6 @@ export default function SubmitFlow({
         />
       )}
 
-      {stage === 'collapsed' && (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-ink/60">
-            {displayName ? `${displayName}님 시간표가 올라가 있어요.` : '시간표가 올라가 있어요.'}
-          </p>
-          <Button variant="outline" size="sm" onClick={() => setStage('edit')}>
-            수정 또는 삭제
-          </Button>
-          <Button variant="ghost" size="sm" onClick={startForOther}>
-            다른 사람 시간표 올리기
-          </Button>
-        </div>
-      )}
-
       {stage === 'edit' && (
         <>
           <OccupancyEditor
@@ -481,9 +394,7 @@ export default function SubmitFlow({
             slotMinutes={room.slot_minutes}
             onChange={setOcc}
           />
-          {/* PIN 을 걸어둔 제출이면 편집 화면에 PIN 칸을 항상 띄운다.
-              이 기기 토큰이 아직 살아 있으면 서버가 PIN 을 무시하므로 비워둬도 되고,
-              다른 기기에서 수정해 토큰이 무효가 된 경우엔 이게 본인 확인 수단이 된다. */}
+          {/* PIN 을 걸어둔 제출일 때만. 토큰이 아직 살아 있으면 서버가 PIN 을 무시한다. */}
           {editorToken && hasPin && !pendingAuth && (
             <label className="flex flex-col gap-1 text-sm font-semibold">
               PIN
@@ -495,10 +406,6 @@ export default function SubmitFlow({
                 value={authPin}
                 onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
               />
-              <span className="text-xs font-normal text-ink/50">
-                이 기기에서 계속 쓰는 중이면 비워둬도 저장돼요. 다른 기기에서 수정한 적이 있으면
-                PIN을 입력해야 저장·삭제할 수 있어요.
-              </span>
             </label>
           )}
           {pendingAuth ? (
@@ -537,7 +444,6 @@ export default function SubmitFlow({
                   setPendingAuth(null);
                   setAuthPin('');
                   setEditorToken(null);
-                  clearLocalEditor(room.id);
                   setStage('reclaim');
                 }}
               >
@@ -554,14 +460,7 @@ export default function SubmitFlow({
                   <Button variant="outline" onClick={() => setConfirmDel(true)}>
                     삭제
                   </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setAuthPin('');
-                      setErr(null);
-                      setStage('collapsed');
-                    }}
-                  >
+                  <Button variant="ghost" onClick={reset}>
                     닫기
                   </Button>
                 </>
@@ -598,7 +497,6 @@ export default function SubmitFlow({
                   : emptyOccupancy(room.day_count, slotCount)
             );
             setEditorToken(token);
-            setLocalEditor(room.id, { slug: s, token });
             setHasPin(!!pin);
             setAuthPin(pin ?? '');
             setStage('edit');
@@ -633,40 +531,10 @@ export default function SubmitFlow({
           {method === 'image' && feedbackGiven && (
             <p className="text-xs text-ink/40">의견 고마워요, 인식 정확도 개선에 참고할게요.</p>
           )}
-          {hasPin ? (
-            <ShareCard
-              url={personalUrl}
-              label="내 수정 링크"
-              hint="이 링크(또는 QR)를 나에게 보내두면 PIN 없이도 다른 기기에서 바로 수정할 수 있어요."
-            />
-          ) : (
-            <div className="flex flex-col gap-2 rounded-md bg-cta/5 px-3 py-2 text-xs leading-relaxed text-ink/60">
-              <p>
-                PIN을 설정하지 않았어요. 다른 기기에서 고치려면 방 페이지에서 "이미 올린 시간표
-                수정하기" → 닉네임({displayName}) 입력만 하면 열려요 — 대신 같은 이름을 아는
-                사람이면 누구나 내 시간표를 고치거나 지울 수 있어요.
-              </p>
-              {addingPin ? (
-                <div className="flex gap-2">
-                  <Input
-                    inputMode="numeric"
-                    autoComplete="off"
-                    maxLength={4}
-                    placeholder="숫자 4자리"
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  />
-                  <Button variant="cta" size="sm" disabled={!isValidPin(pinInput)} onClick={addPin}>
-                    설정
-                  </Button>
-                </div>
-              ) : (
-                <Button variant="outline" size="sm" className="self-start" onClick={() => setAddingPin(true)}>
-                  PIN 설정해서 나만 수정하게 하기
-                </Button>
-              )}
-            </div>
-          )}
+          <p className="rounded-md bg-ink/5 px-3 py-2 text-xs leading-relaxed text-ink/60">
+            나중에 고치려면 방 페이지에서 "이미 올린 시간표 수정하기" → 이름({displayName})
+            {hasPin ? '과 PIN을 입력하면 돼요.' : '만 입력하면 돼요.'}
+          </p>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setStage('edit')}>
               수정 또는 삭제
@@ -714,15 +582,24 @@ function Reclaim({
   const check = useMemo(() => checkNickname(raw), [raw]);
   const exists = check.ok && takenSlugs.includes(check.slug);
 
-  async function probe() {
-    setErr(null);
-    if (!check.ok) return;
-    try {
-      setNeedPin(await editorHasPin(roomId, check.slug));
-    } catch (e) {
-      setErr(msg(e));
+  // 이름을 치는 동안 PIN 필요 여부를 미리 조회한다.
+  // blur 시점에 조회하면 그때 안내문구/PIN 칸이 끼어들어 버튼이 밀리고 첫 탭이 씹힌다.
+  useEffect(() => {
+    if (!exists) {
+      setNeedPin(null);
+      return;
     }
-  }
+    let alive = true;
+    const t = setTimeout(() => {
+      editorHasPin(roomId, check.slug)
+        .then((v) => alive && setNeedPin(v))
+        .catch(() => alive && setNeedPin(null));
+    }, 200);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [roomId, check.slug, exists]);
 
   async function go() {
     setErr(null);
@@ -747,7 +624,7 @@ function Reclaim({
     <div className="flex flex-col gap-3">
       <label className="flex flex-col gap-1 text-sm font-semibold">
         올릴 때 쓴 이름
-        <Input value={raw} onChange={(e) => setRaw(e.target.value)} onBlur={probe} />
+        <Input value={raw} onChange={(e) => setRaw(e.target.value)} />
       </label>
       {check.ok && !exists && raw && <p className="text-xs text-cta">그 이름으로 올린 시간표가 없어요</p>}
       {needPin && (

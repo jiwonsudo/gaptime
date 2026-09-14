@@ -66,7 +66,6 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
   const { roomId = '', slug } = useParams();
   const [params] = useSearchParams();
   const justCreated = params.get('created') === '1';
-  const editToken = params.get('k');
   // 이 브라우저가 방장인지 (localStorage 동기 확인 — 공유 카드 기본 펼침 여부)
   const looksLikeOwner = justCreated || !!getOwnerToken(roomId);
 
@@ -116,10 +115,7 @@ export default function RoomJoin({ tour, onOpenTour, onCloseTour }: Props) {
     };
   }, [roomId, refresh]);
 
-  const editTarget = useMemo(
-    () => (slug ? { slug, token: editToken } : null),
-    [slug, editToken]
-  );
+  const editTarget = useMemo(() => (slug ? { slug } : null), [slug]);
 
   const focusSub = focusSlug ? submissions.find((s) => s.slug === focusSlug) ?? null : null;
   const shareUrl = `${window.location.origin}/room/${roomId}`;

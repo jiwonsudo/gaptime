@@ -1,8 +1,7 @@
-// 방장 토큰 / 제출자 토큰은 서버가 발급하고 이 브라우저에만 저장한다.
-// 서버 재요청 시에만 쓰이며 다른 사람은 볼 수 없다. 크로스 기기는 닉네임+PIN 또는 개인 링크로.
+// 브라우저에 남기는 건 방장 토큰뿐이다(방 관리 권한).
+// 제출자는 아무것도 저장하지 않는다 — 수정·삭제할 때마다 이름(+PIN)으로 본인 확인을 거친다.
 
 const OWNER = (roomId: string) => `gaptime:owner:${roomId}`;
-const EDITOR = (roomId: string) => `gaptime:editor:${roomId}`; // JSON { slug, token }
 const SEEN_TUTORIAL = 'gaptime:seenTutorial';
 
 function read(key: string): string | null {
@@ -31,29 +30,6 @@ function remove(key: string) {
 export const getOwnerToken = (roomId: string) => read(OWNER(roomId));
 export const setOwnerToken = (roomId: string, token: string) => write(OWNER(roomId), token);
 export const clearOwnerToken = (roomId: string) => remove(OWNER(roomId));
-
-// ── 제출자 (같은 기기 자동 복원) ──
-export interface LocalEditor {
-  slug: string;
-  token: string;
-}
-export function getLocalEditor(roomId: string): LocalEditor | null {
-  const raw = read(EDITOR(roomId));
-  if (!raw) return null;
-  try {
-    const v = JSON.parse(raw);
-    if (v && typeof v.slug === 'string' && typeof v.token === 'string') return v;
-  } catch {
-    /* noop */
-  }
-  return null;
-}
-export function setLocalEditor(roomId: string, editor: LocalEditor) {
-  write(EDITOR(roomId), JSON.stringify(editor));
-}
-export function clearLocalEditor(roomId: string) {
-  remove(EDITOR(roomId));
-}
 
 // ── 튜토리얼 ──
 export const hasSeenTutorial = () => read(SEEN_TUTORIAL) === '1';
