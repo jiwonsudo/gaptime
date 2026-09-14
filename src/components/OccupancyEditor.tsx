@@ -22,6 +22,10 @@ export default function OccupancyEditor({
   onChange,
 }: Props) {
   const painting = useRef<{ to: boolean } | null>(null);
+  // 터치 후 브라우저가 합성해서 쏘는 호환용 mouse 이벤트를 걸러내기 위한 타임스탬프.
+  // (사파리는 Pointer Events만으로는 안정적으로 안 먹혀서 touch+mouse를 같이 쓰되,
+  //  터치 직후 한동안의 mouse 이벤트는 같은 제스처의 중복으로 보고 무시한다)
+  const lastTouchAt = useRef(0);
   const perHour = 60 / slotMinutes;
   const rowH = slotMinutes === 30 ? 'h-4' : 'h-7';
 
@@ -41,15 +45,17 @@ export default function OccupancyEditor({
       <div
         className="grid touch-none select-none"
         style={{ gridTemplateColumns: `2.75rem repeat(${dayCount}, 1fr)`, touchAction: 'none' }}
-        // 터치·마우스 이벤트를 같이 걸면 브라우저가 터치 후 호환용 mouse 이벤트를
-        // 합성해 두 번 토글(원위치)되는 경우가 있어(브라우저마다 다르게 발생) Pointer
-        // Events 하나로 통일한다. 드래그 중엔 pointerdown 시점 요소에 암묵 캡처가 걸려
-        // pointerenter가 다른 칸으로 안 넘어가므로 elementFromPoint로 직접 위치를 찾는다.
-        onPointerUp={() => (painting.current = null)}
-        onPointerCancel={() => (painting.current = null)}
-        onPointerMove={(e) => {
+        onMouseUp={() => (painting.current = null)}
+        onMouseLeave={() => (painting.current = null)}
+        onTouchEnd={() => (painting.current = null)}
+        onTouchCancel={() => (painting.current = null)}
+        onTouchMove={(e) => {
+          // 드래그 중엔 touchstart 시점 요소에 암묵 캡처가 걸려 있어 터치가 다른
+          // 칸으로 넘어가도 그 칸의 이벤트가 안 뜬다 — elementFromPoint로 직접 찾는다.
           if (!painting.current) return;
-          const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+          const t = e.touches[0];
+          if (!t) return;
+          const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
           const cell = el?.closest<HTMLElement>('[data-d]');
           if (!cell) return;
           setCell(Number(cell.dataset.d), Number(cell.dataset.s), painting.current.to);
@@ -83,11 +89,25 @@ export default function OccupancyEditor({
                     hourStart ? 'border-t border-t-white/70' : 'border-t border-t-white/30'
                   } ${busy ? 'bg-cta/35' : 'bg-free/25'}`}
                   style={{ touchAction: 'none' }}
-                  onPointerDown={(e) => {
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    lastTouchAt.current = Date.now();
+                    const to = !busy;
+                    painting.current = { to };
+                    setCell(d, s, to);
+                  }}
+                  onMouseDown={(e) => {
+                    // 터치 직후 브라우저가 호환용으로 합성해서 쏘는 mouseDown은
+                    // 같은 제스처의 중복이므로 무시 (안 그러면 토글이 바로 원복됨)
+                    if (Date.now() - lastTouchAt.current < 800) return;
                     e.preventDefault();
                     const to = !busy;
                     painting.current = { to };
                     setCell(d, s, to);
+                  }}
+                  onMouseEnter={() => {
+                    if (Date.now() - lastTouchAt.current < 800) return;
+                    if (painting.current) setCell(d, s, painting.current.to);
                   }}
                 />
               );
