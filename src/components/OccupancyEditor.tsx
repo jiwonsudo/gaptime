@@ -41,13 +41,17 @@ export default function OccupancyEditor({
       <div
         className="grid touch-none select-none"
         style={{ gridTemplateColumns: `2.75rem repeat(${dayCount}, 1fr)` }}
-        onPointerUp={() => (painting.current = null)}
-        onPointerCancel={() => (painting.current = null)}
-        onPointerMove={(e) => {
-          // 터치는 pointerdown 시점의 요소에 암묵적으로 캡처되어 pointerenter가
-          // 다른 칸으로 넘어가지 않는다 — elementFromPoint로 직접 위치를 찾는다.
+        // 카카오톡 등 인앱 브라우저는 Pointer Events 지원이 불완전한 경우가 있어
+        // 훨씬 오래되고 보편적으로 지원되는 Touch/Mouse 이벤트를 직접 쓴다.
+        onMouseUp={() => (painting.current = null)}
+        onMouseLeave={() => (painting.current = null)}
+        onTouchEnd={() => (painting.current = null)}
+        onTouchCancel={() => (painting.current = null)}
+        onTouchMove={(e) => {
           if (!painting.current) return;
-          const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+          const t = e.touches[0];
+          if (!t) return;
+          const el = document.elementFromPoint(t.clientX, t.clientY) as HTMLElement | null;
           const cell = el?.closest<HTMLElement>('[data-d]');
           if (!cell) return;
           setCell(Number(cell.dataset.d), Number(cell.dataset.s), painting.current.to);
@@ -77,10 +81,20 @@ export default function OccupancyEditor({
                   aria-pressed={busy}
                   data-d={d}
                   data-s={s}
-                  className={`${rowH} border-x border-white/70 transition-colors ${
+                  className={`${rowH} touch-none border-x border-white/70 transition-colors ${
                     hourStart ? 'border-t border-t-white/70' : 'border-t border-t-white/30'
                   } ${busy ? 'bg-cta/35' : 'bg-free/25'}`}
-                  onPointerDown={(e) => {
+                  style={{ touchAction: 'none' }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const to = !busy;
+                    painting.current = { to };
+                    setCell(d, s, to);
+                  }}
+                  onMouseEnter={() => {
+                    if (painting.current) setCell(d, s, painting.current.to);
+                  }}
+                  onTouchStart={(e) => {
                     e.preventDefault();
                     const to = !busy;
                     painting.current = { to };
