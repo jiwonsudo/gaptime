@@ -90,6 +90,11 @@ export default function SubmitFlow({
     if (target.token) {
       setEditorToken(target.token);
       setStage('edit');
+      // 이 제출에 PIN이 걸려 있으면 편집 화면에 PIN 칸을 띄워야 한다
+      // (다른 기기에서 수정했으면 이 기기 토큰이 이미 무효일 수 있음)
+      editorHasPin(room.id, sub.slug)
+        .then((v) => setHasPin(!!v))
+        .catch(() => setHasPin(false));
     } else {
       setStage('reclaim');
     }
@@ -177,6 +182,8 @@ export default function SubmitFlow({
       slug,
       occupancy: occ,
       editorToken: token,
+      // 토큰이 유효하면 서버가 PIN은 무시한다. 토큰이 낡았을 때만 이게 본인 확인 수단이 된다.
+      pin: isValidPin(authPin) ? authPin : null,
       setPin,
     });
     setEditorToken(next);
@@ -202,13 +209,22 @@ export default function SubmitFlow({
     onChanged();
   }
 
-  // 토큰이 낡았을 때: PIN 이 걸린 제출이면 PIN 을 받아야 하고(→ pendingAuth),
+  // 토큰이 낡았을 때: PIN 이 걸린 제출이면 PIN 이 있어야 하고(없으면 → pendingAuth 로 요청),
   // PIN 이 없는 제출이면 닉네임만으로 권한을 되찾을 수 있으니 조용히 이어서 진행한다.
   async function recoverAndRetry(action: 'save' | 'delete') {
     const needsPin = await editorHasPin(room.id, slug);
+    setHasPin(!!needsPin);
     if (needsPin) {
+      // 편집 화면 PIN 칸에 이미 입력해둔 게 있으면 그걸로 바로 권한을 되찾는다
+      if (isValidPin(authPin)) {
+        const fresh = await claimEditor(room.id, slug, authPin);
+        setEditorToken(fresh);
+        setLocalEditor(room.id, { slug, token: fresh });
+        if (action === 'save') await saveWith(fresh);
+        else await deleteWith(fresh);
+        return;
+      }
       setPendingAuth(action);
-      setAuthPin('');
       return;
     }
     const fresh = await claimEditor(room.id, slug, null);
@@ -440,6 +456,26 @@ export default function SubmitFlow({
             slotMinutes={room.slot_minutes}
             onChange={setOcc}
           />
+          {/* PIN 을 걸어둔 제출이면 편집 화면에 PIN 칸을 항상 띄운다.
+              이 기기 토큰이 아직 살아 있으면 서버가 PIN 을 무시하므로 비워둬도 되고,
+              다른 기기에서 수정해 토큰이 무효가 된 경우엔 이게 본인 확인 수단이 된다. */}
+          {editorToken && hasPin && !pendingAuth && (
+            <label className="flex flex-col gap-1 text-sm font-semibold">
+              PIN
+              <Input
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={4}
+                placeholder="숫자 4자리"
+                value={authPin}
+                onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              />
+              <span className="text-xs font-normal text-ink/50">
+                이 기기에서 계속 쓰는 중이면 비워둬도 저장돼요. 다른 기기에서 수정한 적이 있으면
+                PIN을 입력해야 저장·삭제할 수 있어요.
+              </span>
+            </label>
+          )}
           {pendingAuth ? (
             <div className="flex flex-col gap-2 rounded-md border border-cta/30 bg-cta/5 p-3">
               <p className="text-xs leading-relaxed text-ink/70">
@@ -516,7 +552,7 @@ export default function SubmitFlow({
           roomId={room.id}
           takenSlugs={takenSlugs}
           onCancel={() => setStage('menu')}
-          onClaimed={({ slug: s, token }) => {
+          onClaimed={({ slug: s, token, pin }) => {
             const sub = submissions.find((x) => x.slug === s);
             setSlug(s);
             setDisplayName(sub?.display_name ?? s);
@@ -526,6 +562,8 @@ export default function SubmitFlow({
             );
             setEditorToken(token);
             setLocalEditor(room.id, { slug: s, token });
+            setHasPin(!!pin);
+            setAuthPin(pin ?? '');
             setStage('edit');
           }}
         />
@@ -629,7 +667,7 @@ function Reclaim({
 }: {
   roomId: string;
   takenSlugs: string[];
-  onClaimed: (v: { slug: string; token: string }) => void;
+  onClaimed: (v: { slug: string; token: string; pin: string | null }) => void;
   onCancel: () => void;
 }) {
   const [raw, setRaw] = useState('');
@@ -652,8 +690,17 @@ function Reclaim({
   async function go() {
     setErr(null);
     try {
-      const token = await claimEditor(roomId, check.slug, needPin ? pin : null);
-      onClaimed({ slug: check.slug, token });
+      // probe(onBlur)가 아직 안 끝났을 수 있다 — PIN 필요 여부를 여기서 확정한다.
+      // (모르는 채로 PIN 없이 호출하면 실패로 잡혀 시도 횟수만 깎인다)
+      let need = needPin;
+      if (need === null) {
+        need = await editorHasPin(roomId, check.slug);
+        setNeedPin(need);
+        if (need && !isValidPin(pin)) return; // PIN 칸이 이제 뜨므로 입력받고 다시
+      }
+      const usePin = need ? pin : null;
+      const token = await claimEditor(roomId, check.slug, usePin);
+      onClaimed({ slug: check.slug, token, pin: usePin });
     } catch (e) {
       setErr(msg(e));
     }
