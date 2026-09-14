@@ -79,13 +79,17 @@ export default function OccupancyEditor({
               const busy = value[d]?.[s] ?? false;
               const hourStart = s % perHour === 0;
               return (
-                <button
+                // 네이티브 <button>은 iOS 사파리에서 손가락으로 누른 채 움직일 때
+                // 자체 하이라이트/제스처 처리 때문에 touchmove가 안정적으로 안 뜨는
+                // 경우가 있어(탭은 되는데 드래그가 안 먹히는 원인), 일반 div로 대체한다.
+                <div
                   key={d}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   aria-pressed={busy}
                   data-d={d}
                   data-s={s}
-                  className={`${rowH} touch-none border-x border-white/70 transition-colors ${
+                  className={`${rowH} touch-none cursor-pointer border-x border-white/70 transition-colors ${
                     hourStart ? 'border-t border-t-white/70' : 'border-t border-t-white/30'
                   } ${busy ? 'bg-cta/35' : 'bg-free/25'}`}
                   style={{ touchAction: 'none' }}
@@ -108,6 +112,12 @@ export default function OccupancyEditor({
                   onMouseEnter={() => {
                     if (Date.now() - lastTouchAt.current < 800) return;
                     if (painting.current) setCell(d, s, painting.current.to);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setCell(d, s, !busy);
+                    }
                   }}
                 />
               );
