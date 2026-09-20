@@ -3,4 +3,4 @@ Allow: /$
 Allow: /privacy
 Disallow: /room/
 
-Sitemap: https://everyfreetime.cloud/sitemap.xml
+Sitemap: https://www.everyfreetime.cloud/sitemap.xml

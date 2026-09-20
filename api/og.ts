@@ -5,7 +5,7 @@
 
 export const config = { runtime: 'edge' };
 
-const SITE = 'https://everyfreetime.cloud';
+const SITE = 'https://www.everyfreetime.cloud';
 
 interface Room {
   title: string | null;
