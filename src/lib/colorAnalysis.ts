@@ -21,6 +21,7 @@ export function sampleCellSaturation(
   cellW: number,
   cellH: number
 ): number {
+  if (imgWidth <= 0 || data.length === 0) return 0;
   const imgHeight = imgWidth > 0 ? Math.floor(data.length / 4 / imgWidth) : 0;
   const inset = 0.15;
   const startX = cellX + cellW * inset;
