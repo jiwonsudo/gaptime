@@ -14,6 +14,8 @@
 <img src="https://img.shields.io/badge/Vitest-6E9F18?style=flat-square&logo=vitest&logoColor=white" alt="Vitest">
 <img src="https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white" alt="Vercel">
 
+🔥 **에브리타임 HOT 게시물 등재**
+
 [**서비스 바로가기 →**](https://www.everyfreetime.cloud)
 
 <img src="docs/screenshots/heatmap.webp" width="180" alt="결과 히트맵">
